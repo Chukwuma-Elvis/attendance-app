@@ -134,7 +134,7 @@ export default function AttendancePage() {
         <div className="flex items-center gap-2">
           <div>
             <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
-            <p className="text-xs text-gray-500 mt-1">{dayOfWeekLabel(date)}</p>
+            <p className="text-base font-semibold text-brand mt-1">{dayOfWeekLabel(date)}</p>
           </div>
           <button className="btn-primary" onClick={save} disabled={saving}>
             {saving ? "Saving..." : "Save"}
