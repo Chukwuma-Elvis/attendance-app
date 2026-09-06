@@ -76,7 +76,7 @@ export default function WeeklyAttendanceTable({
               <th>Name</th>
               <th>Role</th>
               {weekDayLabels.map((d) => (
-                <th key={d.key} className="text-center">
+                <th key={d.key} className="text-center w-20 whitespace-nowrap">
                   {d.label}
                   <br />
                   <span className="font-normal text-gray-400">{d.dateLabel}</span>
@@ -97,7 +97,7 @@ export default function WeeklyAttendanceTable({
                 <td>{r.name}</td>
                 <td>{r.role}</td>
                 {r.days.map((d) => (
-                  <td key={d.key} className="text-center">
+                  <td key={d.key} className="text-center w-20 whitespace-nowrap">
                     {d.status ? (
                       <span className={`text-xs rounded-full px-2 py-1 ${STATUS_BADGE_COLORS[d.status]}`}>
                         {statusLabel(d.status)}
