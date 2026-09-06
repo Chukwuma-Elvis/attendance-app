@@ -32,6 +32,10 @@ function formatCurrency(n: number) {
   return new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(n);
 }
 
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default function InfractionsPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
@@ -40,7 +44,7 @@ export default function InfractionsPage() {
   const [loading, setLoading] = useState(true);
 
   const [empId, setEmpId] = useState("");
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(todayISO());
   const [type, setType] = useState("MINOR");
   const [description, setDescription] = useState("");
   const [customName, setCustomName] = useState("");
