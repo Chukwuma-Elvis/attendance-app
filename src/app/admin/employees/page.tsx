@@ -64,6 +64,7 @@ export default function EmployeesPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [from, setFrom] = useState(startOfMonthISO());
   const [to, setTo] = useState(endOfMonthISO());
@@ -168,9 +169,23 @@ export default function EmployeesPage() {
     load();
   }
 
+  const filteredEmployees = employees.filter((emp) =>
+    emp.name.toLowerCase().includes(search.trim().toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Employees</h1>
+
+      <div className="card">
+        <label className="block text-sm font-medium mb-1">Search by Name</label>
+        <input
+          className="input w-full sm:w-80"
+          placeholder="Type a name..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
 
       <form onSubmit={addEmployee} className="card flex flex-wrap items-end gap-3">
         <div>
@@ -198,9 +213,12 @@ export default function EmployeesPage() {
       </form>
 
       {loading && <div className="card text-center text-gray-400 py-6">Loading...</div>}
+      {!loading && filteredEmployees.length === 0 && (
+        <div className="card text-center text-gray-400 py-6">No employees match "{search}".</div>
+      )}
 
       <div className="space-y-3">
-        {employees.map((emp) => {
+        {filteredEmployees.map((emp) => {
           const isOpen = expanded.has(emp.id);
           const b = breakdowns[emp.id];
           const totalMarked = b ? b.present + b.late + b.absent + b.excused : 0;
