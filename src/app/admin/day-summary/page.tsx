@@ -95,7 +95,7 @@ export default function DaySummaryPage() {
             <button
               onClick={() => setDate((d) => shiftDate(d, -1))}
               aria-label="Previous day"
-              className="btn-secondary text-lg px-3 py-1"
+              className="btn-secondary text-lg px-3 py-1 mt-4"
             >
               ‹
             </button>
@@ -106,7 +106,7 @@ export default function DaySummaryPage() {
             <button
               onClick={() => setDate((d) => shiftDate(d, 1))}
               aria-label="Next day"
-              className="btn-secondary text-lg px-3 py-1"
+              className="btn-secondary text-lg px-3 py-1 mt-4"
             >
               ›
             </button>
