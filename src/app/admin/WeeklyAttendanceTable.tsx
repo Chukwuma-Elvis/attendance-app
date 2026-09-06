@@ -70,11 +70,11 @@ export default function WeeklyAttendanceTable({
 
       <div className="card overflow-x-auto">
         <h2 className="font-semibold mb-4">This Week's Attendance</h2>
-        <table className="data-table">
+        <table className="data-table !w-auto">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Role</th>
+              <th className="whitespace-nowrap">Name</th>
+              <th className="whitespace-nowrap">Role</th>
               {weekDayLabels.map((d) => (
                 <th key={d.key} className="!text-center w-20 whitespace-nowrap">
                   {d.label}
@@ -94,8 +94,8 @@ export default function WeeklyAttendanceTable({
             )}
             {filteredRows.map((r) => (
               <tr key={r.employeeId}>
-                <td>{r.name}</td>
-                <td>{r.role}</td>
+                <td className="whitespace-nowrap">{r.name}</td>
+                <td className="whitespace-nowrap">{r.role}</td>
                 {r.days.map((d) => (
                   <td key={d.key} className="!text-center w-20 whitespace-nowrap">
                     {d.status ? (
