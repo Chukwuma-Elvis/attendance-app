@@ -154,28 +154,28 @@ export default function AttendancePage() {
   return (
     <div className="space-y-6">
       <div className="card">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setDate((d) => shiftDate(d, -1))}
-              aria-label="Previous day"
-              className="btn-secondary text-lg px-3 py-1 mt-4"
-            >
-              ‹
-            </button>
-            <div>
-              <p className="text-sm text-gray-500">Mark Attendance</p>
-              <h1 className="text-3xl font-bold text-brand">{dayHeaderLabel(date)}</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <p className="text-sm text-gray-500">Mark Attendance</p>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                onClick={() => setDate((d) => shiftDate(d, -1))}
+                aria-label="Previous day"
+                className="btn-secondary text-lg px-3 py-1 shrink-0"
+              >
+                ‹
+              </button>
+              <h1 className="text-xl sm:text-3xl font-bold text-brand">{dayHeaderLabel(date)}</h1>
+              <button
+                onClick={() => setDate((d) => shiftDate(d, 1))}
+                aria-label="Next day"
+                className="btn-secondary text-lg px-3 py-1 shrink-0"
+              >
+                ›
+              </button>
             </div>
-            <button
-              onClick={() => setDate((d) => shiftDate(d, 1))}
-              aria-label="Next day"
-              className="btn-secondary text-lg px-3 py-1 mt-4"
-            >
-              ›
-            </button>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
             <button className="btn-primary" onClick={save} disabled={saving}>
               {saving ? "Saving..." : "Save"}
