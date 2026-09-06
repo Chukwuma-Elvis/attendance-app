@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+  OFF_DAY
+}
+
+enum InfractionType {
+  MINOR
+  MAJOR
+  MISCELLANEOUS
+}
+
+enum PendingChangeKind {
+  ATTENDANCE
+  INFRACTION
+  PENALTY_RULE
+}
+
+enum PendingChangeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Employee {
+  id          String        @id @default(cuid())
+  name        String
+  role        String
+  active      Boolean       @default(true)
+  // Days of week this employee is normally scheduled to work.
+  // 0 = Sunday ... 6 = Saturday. Any day NOT in this list is treated as an off day.
+  workingDays Int[]         @default([0, 1, 2, 3, 4, 5, 6])
+  createdAt   DateTime      @default(now())
+  attendance  Attendance[]
+  infractions Infraction[]
+
+  @@map("employees")
+}
+
+model Attendance {
+  id         String           @id @default(cuid())
+  employeeId String
+  employee   Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime         @db.Date
+  status     AttendanceStatus
+  note       String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@unique([employeeId, date])
+  @@map("attendance")
+}
+
+model Infraction {
+  id          String         @id @default(cuid())
+  employeeId  String
+  employee    Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date        DateTime       @db.Date
+  type        InfractionType
+  description String?
+  amount      Int
+  createdAt   DateTime       @default(now())
+
+  @@map("infractions")
+}
+
+// Configurable cash-penalty amounts (in your local currency's smallest
+// display unit, e.g. Naira) applied per occurrence of each deduction type.
+model PenaltyRule {
+  id     String @id @default(cuid())
+  key    String @unique // LATE | ABSENT | MINOR_INFRACTION | MAJOR_INFRACTION | MISCELLANEOUS
+  label  String
+  amount Int
+
+  @@map("penalty_rules")
+}
+
+// A change submitted by the assistant admin account that leads to a cash
+// deduction (marking someone late/absent, applying an infraction, or
+// re-pricing a penalty rule). It sits here, unapplied, until the owner
+// admin approves or rejects it.
+model PendingChange {
+  id          String              @id @default(cuid())
+  kind        PendingChangeKind
+  summary     String
+  payload     Json
+  requestedBy String
+  status      PendingChangeStatus @default(PENDING)
+  createdAt   DateTime            @default(now())
+  resolvedAt  DateTime?
+  resolvedBy  String?
+
+  @@map("pending_changes")
+}
