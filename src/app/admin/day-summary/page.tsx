@@ -42,6 +42,12 @@ function dayHeaderLabel(dateStr: string) {
   });
 }
 
+function shiftDate(dateStr: string, delta: number) {
+  const d = new Date(dateStr);
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function DaySummaryPage() {
   const [date, setDate] = useState(todayISO());
   const [rows, setRows] = useState<Row[]>([]);
@@ -85,9 +91,25 @@ export default function DaySummaryPage() {
     <div className="space-y-6">
       <div className="card">
         <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <p className="text-sm text-gray-500">Day Summary</p>
-            <h1 className="text-3xl font-bold text-brand">{dayHeaderLabel(date)}</h1>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setDate((d) => shiftDate(d, -1))}
+              aria-label="Previous day"
+              className="btn-secondary text-lg px-3 py-1"
+            >
+              ‹
+            </button>
+            <div>
+              <p className="text-sm text-gray-500">Day Summary</p>
+              <h1 className="text-3xl font-bold text-brand">{dayHeaderLabel(date)}</h1>
+            </div>
+            <button
+              onClick={() => setDate((d) => shiftDate(d, 1))}
+              aria-label="Next day"
+              className="btn-secondary text-lg px-3 py-1"
+            >
+              ›
+            </button>
           </div>
           <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
         </div>

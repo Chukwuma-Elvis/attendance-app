@@ -43,8 +43,20 @@ function statusSelectClasses(status: string | null) {
   return `rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${colors}`;
 }
 
-function dayOfWeekLabel(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
+function dayHeaderLabel(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function shiftDate(dateStr: string, delta: number) {
+  const d = new Date(dateStr);
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
 }
 
 function todayISO() {
@@ -141,17 +153,35 @@ export default function AttendancePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-semibold">Mark Attendance</h1>
-        <div className="flex items-center gap-2">
-          <div>
-            <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
-            <p className="text-base font-semibold text-brand mt-1">{dayOfWeekLabel(date)}</p>
+      <div className="card">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setDate((d) => shiftDate(d, -1))}
+              aria-label="Previous day"
+              className="btn-secondary text-lg px-3 py-1"
+            >
+              ‹
+            </button>
+            <div>
+              <p className="text-sm text-gray-500">Mark Attendance</p>
+              <h1 className="text-3xl font-bold text-brand">{dayHeaderLabel(date)}</h1>
+            </div>
+            <button
+              onClick={() => setDate((d) => shiftDate(d, 1))}
+              aria-label="Next day"
+              className="btn-secondary text-lg px-3 py-1"
+            >
+              ›
+            </button>
           </div>
-          <button className="btn-primary" onClick={save} disabled={saving}>
-            {saving ? "Saving..." : "Save"}
-          </button>
-          {savedMsg && <span className="text-sm text-green-600">{savedMsg}</span>}
+          <div className="flex items-center gap-2">
+            <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
+            <button className="btn-primary" onClick={save} disabled={saving}>
+              {saving ? "Saving..." : "Save"}
+            </button>
+            {savedMsg && <span className="text-sm text-green-600">{savedMsg}</span>}
+          </div>
         </div>
       </div>
 
