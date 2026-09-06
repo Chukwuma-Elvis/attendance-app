@@ -65,6 +65,8 @@ export default function EmployeesPage() {
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("ALL");
+  const [sortBy, setSortBy] = useState<"name" | "role">("name");
   const [loading, setLoading] = useState(true);
   const [from, setFrom] = useState(startOfMonthISO());
   const [to, setTo] = useState(endOfMonthISO());
@@ -169,22 +171,47 @@ export default function EmployeesPage() {
     load();
   }
 
-  const filteredEmployees = employees.filter((emp) =>
-    emp.name.toLowerCase().includes(search.trim().toLowerCase())
-  );
+  const roles = Array.from(new Set(employees.map((e) => e.role))).sort();
+
+  const filteredEmployees = employees
+    .filter((emp) => emp.name.toLowerCase().includes(search.trim().toLowerCase()))
+    .filter((emp) => roleFilter === "ALL" || emp.role === roleFilter)
+    .sort((a, b) =>
+      sortBy === "role" ? a.role.localeCompare(b.role) || a.name.localeCompare(b.name) : a.name.localeCompare(b.name)
+    );
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Employees</h1>
 
-      <div className="card">
-        <label className="block text-sm font-medium mb-1">Search by Name</label>
-        <input
-          className="input w-full sm:w-80"
-          placeholder="Type a name..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="card flex flex-wrap items-end gap-3">
+        <div>
+          <label className="block text-sm font-medium mb-1">Search by Name</label>
+          <input
+            className="input w-full sm:w-80"
+            placeholder="Type a name..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Filter by Role</label>
+          <select className="input" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+            <option value="ALL">All Roles</option>
+            {roles.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Sort By</label>
+          <select className="input" value={sortBy} onChange={(e) => setSortBy(e.target.value as "name" | "role")}>
+            <option value="name">Name</option>
+            <option value="role">Role</option>
+          </select>
+        </div>
       </div>
 
       <form onSubmit={addEmployee} className="card flex flex-wrap items-end gap-3">

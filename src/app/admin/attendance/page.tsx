@@ -57,6 +57,8 @@ export default function AttendancePage() {
   const [offDuty, setOffDuty] = useState<OffDutyEmployee[]>([]);
   const [pendingByEmployee, setPendingByEmployee] = useState<Record<string, string>>({});
   const [addingId, setAddingId] = useState("");
+  const [roleFilter, setRoleFilter] = useState("ALL");
+  const [sortBy, setSortBy] = useState<"name" | "role">("name");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
@@ -93,7 +95,9 @@ export default function AttendancePage() {
   }
 
   function markAll(status: string) {
-    setRows((prev) => prev.map((r) => ({ ...r, status })));
+    setRows((prev) =>
+      prev.map((r) => (roleFilter === "ALL" || r.role === roleFilter ? { ...r, status } : r))
+    );
   }
 
   function addOffDutyEmployee() {
@@ -126,6 +130,14 @@ export default function AttendancePage() {
     load(date);
     setTimeout(() => setSavedMsg(null), 4000);
   }
+
+  const roles = Array.from(new Set(rows.map((r) => r.role))).sort();
+
+  const displayRows = rows
+    .filter((r) => roleFilter === "ALL" || r.role === roleFilter)
+    .sort((a, b) =>
+      sortBy === "role" ? a.role.localeCompare(b.role) || a.name.localeCompare(b.name) : a.name.localeCompare(b.name)
+    );
 
   return (
     <div className="space-y-6">
@@ -176,6 +188,27 @@ export default function AttendancePage() {
         </button>
       </div>
 
+      <div className="card flex flex-wrap items-end gap-3">
+        <div>
+          <label className="block text-sm font-medium mb-1">Filter by Role</label>
+          <select className="input" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+            <option value="ALL">All Roles</option>
+            {roles.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Sort By</label>
+          <select className="input" value={sortBy} onChange={(e) => setSortBy(e.target.value as "name" | "role")}>
+            <option value="name">Name</option>
+            <option value="role">Role</option>
+          </select>
+        </div>
+      </div>
+
       <div className="card overflow-x-auto">
         <table className="data-table">
           <thead>
@@ -193,7 +226,14 @@ export default function AttendancePage() {
                 </td>
               </tr>
             )}
-            {rows.map((r) => (
+            {!loading && displayRows.length === 0 && (
+              <tr>
+                <td colSpan={3} className="text-center text-gray-400 py-6">
+                  No employees match this filter.
+                </td>
+              </tr>
+            )}
+            {displayRows.map((r) => (
               <tr key={r.employeeId}>
                 <td>{r.name}</td>
                 <td>{r.role}</td>
