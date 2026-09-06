@@ -6,32 +6,37 @@ body {
   @apply bg-gray-50 text-gray-900;
 }
 
-.card {
-  @apply bg-white rounded-xl shadow-sm border border-gray-200 p-5;
-}
+/* Layered as components so a utility class (e.g. text-center on a specific
+   <th>) can always override these defaults - otherwise the higher-specificity
+   selectors below (like `table.data-table th`) win regardless of source order. */
+@layer components {
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-200 p-5;
+  }
 
-.btn {
-  @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors;
-}
+  .btn {
+    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors;
+  }
 
-.btn-primary {
-  @apply btn bg-brand text-white hover:bg-blue-700;
-}
+  .btn-primary {
+    @apply btn bg-brand text-white hover:bg-blue-700;
+  }
 
-.btn-secondary {
-  @apply btn bg-gray-100 text-gray-800 hover:bg-gray-200;
-}
+  .btn-secondary {
+    @apply btn bg-gray-100 text-gray-800 hover:bg-gray-200;
+  }
 
-.input {
-  @apply rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand;
-}
+  .input {
+    @apply rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand;
+  }
 
-table.data-table {
-  @apply w-full text-sm border-collapse;
-}
-table.data-table th {
-  @apply text-left font-semibold text-gray-600 border-b border-gray-200 py-2 px-3 bg-gray-50;
-}
-table.data-table td {
-  @apply border-b border-gray-100 py-2 px-3;
+  table.data-table {
+    @apply w-full text-sm border-collapse;
+  }
+  table.data-table th {
+    @apply text-left font-semibold text-gray-600 border-b border-gray-200 py-2 px-3 bg-gray-50;
+  }
+  table.data-table td {
+    @apply border-b border-gray-100 py-2 px-3;
+  }
 }
