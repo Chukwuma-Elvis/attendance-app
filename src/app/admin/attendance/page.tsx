@@ -43,6 +43,10 @@ function statusSelectClasses(status: string | null) {
   return `rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${colors}`;
 }
 
+function dayOfWeekLabel(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
+}
+
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -128,7 +132,10 @@ export default function AttendancePage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-semibold">Mark Attendance</h1>
         <div className="flex items-center gap-2">
-          <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
+          <div>
+            <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
+            <p className="text-xs text-gray-500 mt-1">{dayOfWeekLabel(date)}</p>
+          </div>
           <button className="btn-primary" onClick={save} disabled={saving}>
             {saving ? "Saving..." : "Save"}
           </button>
