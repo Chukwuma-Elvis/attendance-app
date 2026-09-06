@@ -49,6 +49,7 @@ export default function DaySummaryPage() {
   const [total, setTotal] = useState(0);
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [sortBy, setSortBy] = useState<"name" | "role" | "status">("name");
   const [loading, setLoading] = useState(true);
 
   async function load(d: string) {
@@ -68,11 +69,17 @@ export default function DaySummaryPage() {
 
   const roles = Array.from(new Set(rows.map((r) => r.role))).sort();
 
-  const filteredRows = rows.filter(
-    (r) =>
-      (roleFilter === "ALL" || r.role === roleFilter) &&
-      (statusFilter === "ALL" || (statusFilter === "UNSET" ? !r.status : r.status === statusFilter))
-  );
+  const filteredRows = rows
+    .filter(
+      (r) =>
+        (roleFilter === "ALL" || r.role === roleFilter) &&
+        (statusFilter === "ALL" || (statusFilter === "UNSET" ? !r.status : r.status === statusFilter))
+    )
+    .sort((a, b) => {
+      if (sortBy === "role") return a.role.localeCompare(b.role) || a.name.localeCompare(b.name);
+      if (sortBy === "status") return (a.status ?? "").localeCompare(b.status ?? "") || a.name.localeCompare(b.name);
+      return a.name.localeCompare(b.name);
+    });
 
   return (
     <div className="space-y-6">
@@ -107,6 +114,18 @@ export default function DaySummaryPage() {
             <option value="ABSENT">Absent</option>
             <option value="EXCUSED">Excused</option>
             <option value="UNSET">Unset</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Sort By</label>
+          <select
+            className="input"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as "name" | "role" | "status")}
+          >
+            <option value="name">Name</option>
+            <option value="role">Role</option>
+            <option value="status">Status</option>
           </select>
         </div>
       </div>
