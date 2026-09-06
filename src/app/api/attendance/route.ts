@@ -45,10 +45,13 @@ export async function GET(req: NextRequest) {
 
 // POST { date, records: [{ employeeId, status, note? }, ...] }
 // Upserts one row per employee for the given date - this is how the
-// "mark attendance" grid on /admin/attendance saves in bulk.
+// "mark attendance" grid on /admin/attendance saves in bulk. A record with
+// an empty/falsy status means "set back to Unset", which deletes any
+// existing attendance row for that employee/date (there's no "unset" value
+// in the AttendanceStatus enum, so clearing it means removing the row).
 // LATE and ABSENT carry a cash deduction, so when the assistant account
 // submits those they are queued for owner approval instead of applied here;
-// PRESENT/EXCUSED (no deduction) still apply immediately either way.
+// PRESENT/EXCUSED/unset (no deduction) still apply immediately either way.
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) {
@@ -67,12 +70,15 @@ export async function POST(req: NextRequest) {
 
   const date = new Date(dateParam);
 
-  let toApply = records;
+  const toClear = records.filter((r) => !r.status);
+  const withStatus = records.filter((r) => r.status);
+
+  let toApply = withStatus;
   let queuedCount = 0;
 
   if (session.role === "ASSISTANT") {
-    const toQueue = records.filter((r) => DEDUCTING_STATUSES.has(r.status));
-    toApply = records.filter((r) => !DEDUCTING_STATUSES.has(r.status));
+    const toQueue = withStatus.filter((r) => DEDUCTING_STATUSES.has(r.status));
+    toApply = withStatus.filter((r) => !DEDUCTING_STATUSES.has(r.status));
 
     if (toQueue.length > 0) {
       const employees = await prisma.employee.findMany({
@@ -106,5 +112,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  return NextResponse.json({ ok: true, applied: toApply.length, queued: queuedCount });
+  if (toClear.length > 0) {
+    await prisma.attendance.deleteMany({
+      where: { date, employeeId: { in: toClear.map((r) => r.employeeId) } },
+    });
+  }
+
+  return NextResponse.json({ ok: true, applied: toApply.length, queued: queuedCount, cleared: toClear.length });
 }

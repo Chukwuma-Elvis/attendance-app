@@ -129,7 +129,7 @@ export default function AttendancePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         date,
-        records: rows.filter((r) => r.status).map((r) => ({ employeeId: r.employeeId, status: r.status })),
+        records: rows.map((r) => ({ employeeId: r.employeeId, status: r.status ?? "" })),
       }),
     });
     const data = await res.json().catch(() => ({}));
