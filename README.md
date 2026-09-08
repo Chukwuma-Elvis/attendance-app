@@ -19,8 +19,7 @@ Infraction ₦50,000). Edit `prisma/seed.ts` or the in-app Settings page to chan
   date range, plus a form to apply an infraction (with its cash penalty) to any employee on any
   work day.
 - **Settings** — edit the cash penalty amount for each deduction type.
-- **Admin login** — single shared admin account (username/password from environment variables),
-  session cookie signed with a secret. Everything under `/admin` is protected by middleware.
+- **Admin login** — role-based accounts (Owner/Manager and Assistant per department) stored in the database with secure scrypt password hashing. Protected under `/admin` by middleware.
 
 ## 1. Local setup
 
@@ -37,8 +36,7 @@ cp .env.example .env
 # Edit .env:
 #   DATABASE_URL      -> your Postgres connection string
 #   SESSION_SECRET    -> run `openssl rand -base64 32` and paste the result
-#   ADMIN_USERNAME    -> whatever you want to log in with
-#   ADMIN_PASSWORD    -> whatever you want to log in with
+# (Accounts are stored in the database. Run `npm run accounts` to list or update them.)
 
 # 3. Create the database tables
 npx prisma migrate dev --name init
@@ -82,8 +80,6 @@ work well and have generous free tiers). Grab its connection string — you'll n
 3. Before the first deploy, open **Environment Variables** and add:
    - `DATABASE_URL` — your production Postgres connection string
    - `SESSION_SECRET` — a long random string (`openssl rand -base64 32`)
-   - `ADMIN_USERNAME` — your chosen admin username
-   - `ADMIN_PASSWORD` — your chosen admin password
 4. Click **Deploy**.
 
 Vercel runs `npm install` (which runs `prisma generate` automatically via `postinstall`) and then
@@ -98,10 +94,28 @@ DATABASE_URL="<your production connection string>" npm run seed
 (Alternatively, wire this up as a one-off command in Vercel's dashboard under Project → Settings →
 Functions, or run it via `vercel env pull` + the commands above locally.)
 
-## 5. After deploy
+## 5. Managing Accounts & Passwords
+
+Logins are stored in the database with secure `scrypt` password hashing. To view existing accounts or change usernames and passwords, run:
+
+```bash
+# List all accounts and their teams:
+npm run accounts
+
+# Change a password:
+npm run accounts -- <username> <new-password>
+
+# Change a username:
+npm run accounts -- <current-username> - <new-username>
+
+# Change both username and password:
+npm run accounts -- <current-username> <new-password> <new-username>
+```
+
+## 6. After deploy
 
 - Visit your Vercel URL — you'll land on `/login`.
-- Log in with `ADMIN_USERNAME` / `ADMIN_PASSWORD`.
+- Log in with your admin or assistant username and password.
 - Go to **Mark Attendance** to start recording days.
 - Go to **Deductions** to see the live breakdown and apply infractions.
 - Go to **Penalty Settings** any time to change the cash amounts.
@@ -111,10 +125,7 @@ Functions, or run it via `vercel env pull` + the commands above locally.)
 This is a solid working MVP, not a finished payroll system. Before relying on it for actual salary
 deductions, consider:
 
-- **Multiple admin accounts** with individually hashed passwords (currently one shared
-  username/password pair, checked in plaintext against environment variables) — swap in
-  NextAuth or a small `AdminUser` table with hashed passwords if more than one person needs
-  separate logins.
+- **Multiple admin accounts** — already implemented with per-department Owner and Assistant roles and scrypt password hashing.
 - **Audit trail** — who marked what attendance, and when infractions were applied/edited/removed.
 - **CSV/Excel export** of the deductions breakdown, since payroll is likely still run outside
   this app.
