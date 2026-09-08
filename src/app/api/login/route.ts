@@ -1,30 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
 import { createSession } from "@/lib/session";
+import { verifyPassword } from "@/lib/password";
 
 export async function POST(req: NextRequest) {
   const { username, password } = await req.json();
-
-  const ownerUsername = process.env.ADMIN_USERNAME;
-  const ownerPassword = process.env.ADMIN_PASSWORD;
-  const assistantUsername = process.env.ASSISTANT_USERNAME;
-  const assistantPassword = process.env.ASSISTANT_PASSWORD;
-
-  if (!ownerUsername || !ownerPassword) {
-    return NextResponse.json(
-      { error: "Server is missing ADMIN_USERNAME/ADMIN_PASSWORD configuration." },
-      { status: 500 }
-    );
+  if (!username || !password) {
+    return NextResponse.json({ error: "Username and password are required." }, { status: 400 });
   }
 
-  if (username === ownerUsername && password === ownerPassword) {
-    await createSession(username, "OWNER");
-    return NextResponse.json({ ok: true, role: "OWNER" });
+  const account = await prisma.adminAccount.findUnique({
+    where: { username },
+    include: { department: true },
+  });
+
+  if (!account || !verifyPassword(password, account.passwordHash)) {
+    return NextResponse.json({ error: "Invalid username or password." }, { status: 401 });
   }
 
-  if (assistantUsername && assistantPassword && username === assistantUsername && password === assistantPassword) {
-    await createSession(username, "ASSISTANT");
-    return NextResponse.json({ ok: true, role: "ASSISTANT" });
-  }
-
-  return NextResponse.json({ error: "Invalid username or password." }, { status: 401 });
+  await createSession(account.username, account.role, account.departmentId, account.department.name);
+  return NextResponse.json({ ok: true, role: account.role, department: account.department.name });
 }

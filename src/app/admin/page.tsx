@@ -1,5 +1,7 @@
 import { computeDeductions } from "@/lib/deductions";
 import { prisma } from "@/lib/db";
+import { getSession } from "@/lib/session";
+import { redirect } from "next/navigation";
 import WeeklyAttendanceTable, { type WeekRow } from "./WeeklyAttendanceTable";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +15,9 @@ function toISODateUTC(d: Date) {
 }
 
 export default async function DashboardPage() {
+  const session = await getSession();
+  if (!session) redirect("/login");
+
   const now = new Date();
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
@@ -28,10 +33,10 @@ export default async function DashboardPage() {
   const weekEnd = weekDates[6];
 
   const [employeeCount, monthBreakdown, weekEmployees] = await Promise.all([
-    prisma.employee.count({ where: { active: true } }),
-    computeDeductions({ from: monthStart, to: monthEnd }),
+    prisma.employee.count({ where: { active: true, departmentId: session.departmentId } }),
+    computeDeductions({ departmentId: session.departmentId, from: monthStart, to: monthEnd }),
     prisma.employee.findMany({
-      where: { active: true },
+      where: { active: true, departmentId: session.departmentId },
       orderBy: { name: "asc" },
       include: { attendance: { where: { date: { gte: weekStart, lte: weekEnd } } } },
     }),
@@ -74,7 +79,10 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Dashboard</h1>
+      <div>
+        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <p className="text-sm text-gray-500">{session.departmentName}</p>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard label="Active Employees" value={employeeCount.toString()} />

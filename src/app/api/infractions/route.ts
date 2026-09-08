@@ -4,9 +4,17 @@ import { getSession } from "@/lib/session";
 import { queuePendingChange } from "@/lib/approvals";
 
 export async function GET(req: NextRequest) {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+  }
+
   const employeeId = req.nextUrl.searchParams.get("employeeId");
   const infractions = await prisma.infraction.findMany({
-    where: employeeId ? { employeeId } : undefined,
+    where: {
+      employee: { departmentId: session.departmentId },
+      ...(employeeId ? { employeeId } : {}),
+    },
     include: { employee: true },
     orderBy: { date: "desc" },
   });
@@ -31,21 +39,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "employeeId, date and type are required." }, { status: 400 });
   }
 
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId, departmentId: session.departmentId },
+  });
+  if (!employee) {
+    return NextResponse.json({ error: "Employee not found." }, { status: 404 });
+  }
+
   let resolvedAmount = amount;
   if (resolvedAmount === undefined || resolvedAmount === null) {
     const ruleKey =
       type === "MINOR" ? "MINOR_INFRACTION" : type === "MAJOR" ? "MAJOR_INFRACTION" : "MISCELLANEOUS";
-    const rule = await prisma.penaltyRule.findUnique({ where: { key: ruleKey } });
+    const rule = await prisma.penaltyRule.findUnique({
+      where: { departmentId_key: { departmentId: session.departmentId, key: ruleKey } },
+    });
     resolvedAmount = rule?.amount ?? 0;
   }
 
   if (session.role === "ASSISTANT") {
-    const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
     const pending = await queuePendingChange({
       kind: "INFRACTION",
       requestedBy: session.username,
+      departmentId: session.departmentId,
       payload: { employeeId, date, type, description, amount: resolvedAmount },
-      summary: `Infraction for ${employee?.name ?? "employee"} on ${date} — ₦${resolvedAmount.toLocaleString()}`,
+      summary: `Infraction for ${employee.name} on ${date} — ₦${resolvedAmount.toLocaleString()}`,
     });
     return NextResponse.json({ pending: true, request: pending }, { status: 202 });
   }

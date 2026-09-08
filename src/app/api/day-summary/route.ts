@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getSession } from "@/lib/session";
 
 // GET /api/day-summary?date=2026-09-06
 // Returns everyone on duty that date with their attendance status (reusing
 // the same on-duty logic as /api/attendance), plus an itemized list of every
 // cash deduction that occurred on that exact date (late/absent pay docks and
-// infractions), for a single-day review page.
+// infractions), for a single-day review page. Scoped to the caller's department.
 export async function GET(req: NextRequest) {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+  }
+
   const dateParam = req.nextUrl.searchParams.get("date");
   if (!dateParam) {
     return NextResponse.json({ error: "date query param is required (YYYY-MM-DD)." }, { status: 400 });
@@ -16,12 +22,15 @@ export async function GET(req: NextRequest) {
 
   const [employees, rules, dayInfractions] = await Promise.all([
     prisma.employee.findMany({
-      where: { active: true },
+      where: { active: true, departmentId: session.departmentId },
       orderBy: { name: "asc" },
       include: { attendance: { where: { date } } },
     }),
-    prisma.penaltyRule.findMany(),
-    prisma.infraction.findMany({ where: { date }, include: { employee: true } }),
+    prisma.penaltyRule.findMany({ where: { departmentId: session.departmentId } }),
+    prisma.infraction.findMany({
+      where: { date, employee: { departmentId: session.departmentId } },
+      include: { employee: true },
+    }),
   ]);
 
   const ruleByKey = Object.fromEntries(rules.map((r) => [r.key, r]));

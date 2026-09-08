@@ -18,14 +18,20 @@ export type EmployeeDeductionBreakdown = {
 };
 
 /**
- * Computes a per-employee deduction breakdown for an optional date range.
- * Pass no dates to compute across all recorded attendance.
+ * Computes a per-employee deduction breakdown for an optional date range,
+ * scoped to one department. Pass no dates to compute across all recorded
+ * attendance.
  */
-export async function computeDeductions(opts?: { from?: Date; to?: Date }): Promise<EmployeeDeductionBreakdown[]> {
-  const rules = await prisma.penaltyRule.findMany();
+export async function computeDeductions(opts: {
+  departmentId: string;
+  from?: Date;
+  to?: Date;
+}): Promise<EmployeeDeductionBreakdown[]> {
+  const rules = await prisma.penaltyRule.findMany({ where: { departmentId: opts.departmentId } });
   const ruleMap = Object.fromEntries(rules.map((r) => [r.key, r.amount]));
 
   const employees = await prisma.employee.findMany({
+    where: { departmentId: opts.departmentId },
     orderBy: { name: "asc" },
     include: {
       attendance: opts?.from || opts?.to

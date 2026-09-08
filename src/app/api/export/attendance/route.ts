@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { computeDeductions } from "@/lib/deductions";
+import { getSession } from "@/lib/session";
 import ExcelJS from "exceljs";
 
 export const runtime = "nodejs";
@@ -12,6 +13,11 @@ function toISODate(d: Date) {
 // GET /api/export/attendance?from=2026-08-25&to=2026-09-30
 // Streams back an .xlsx file with an Attendance grid sheet and a Deductions sheet.
 export async function GET(req: NextRequest) {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+  }
+
   const fromParam = req.nextUrl.searchParams.get("from");
   const toParam = req.nextUrl.searchParams.get("to");
 
@@ -28,6 +34,7 @@ export async function GET(req: NextRequest) {
   }
 
   const employees = await prisma.employee.findMany({
+    where: { departmentId: session.departmentId },
     orderBy: { name: "asc" },
     include: { attendance: { where: { date: { gte: from, lte: to } } } },
   });
@@ -49,7 +56,7 @@ export async function GET(req: NextRequest) {
   }
 
   // --- Sheet 2: Deductions breakdown ---
-  const breakdown = await computeDeductions({ from, to });
+  const breakdown = await computeDeductions({ departmentId: session.departmentId, from, to });
   const dedSheet = workbook.addWorksheet("Deductions");
   dedSheet.addRow([
     "Name", "Role", "Present", "Late", "Absent", "Excused", "Off Day",

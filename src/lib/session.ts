@@ -5,7 +5,12 @@ const COOKIE_NAME = "admin_session";
 const ALG = "HS256";
 
 export type AdminRole = "OWNER" | "ASSISTANT";
-export type SessionPayload = { username: string; role: AdminRole };
+export type SessionPayload = {
+  username: string;
+  role: AdminRole;
+  departmentId: string;
+  departmentName: string;
+};
 
 function getSecret() {
   const secret = process.env.SESSION_SECRET;
@@ -15,8 +20,13 @@ function getSecret() {
   return new TextEncoder().encode(secret);
 }
 
-export async function createSession(username: string, role: AdminRole) {
-  const token = await new SignJWT({ username, role })
+export async function createSession(
+  username: string,
+  role: AdminRole,
+  departmentId: string,
+  departmentName: string
+) {
+  const token = await new SignJWT({ username, role, departmentId, departmentName })
     .setProtectedHeader({ alg: ALG })
     .setIssuedAt()
     .setExpirationTime("12h")

@@ -6,6 +6,7 @@ export async function queuePendingChange(opts: {
   summary: string;
   payload: object;
   requestedBy: string;
+  departmentId: string;
 }) {
   return prisma.pendingChange.create({
     data: {
@@ -13,6 +14,7 @@ export async function queuePendingChange(opts: {
       summary: opts.summary,
       payload: opts.payload as any,
       requestedBy: opts.requestedBy,
+      departmentId: opts.departmentId,
     },
   });
 }
@@ -40,7 +42,7 @@ export async function applyPendingChange(id: string) {
   } else if (change.kind === "PENALTY_RULE") {
     const { key, amount, label } = payload;
     await prisma.penaltyRule.update({
-      where: { key },
+      where: { departmentId_key: { departmentId: change.departmentId, key } },
       data: {
         ...(amount !== undefined ? { amount: Number(amount) } : {}),
         ...(label !== undefined ? { label: String(label) } : {}),

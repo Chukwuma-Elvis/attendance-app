@@ -11,7 +11,10 @@ export async function GET() {
   }
 
   const changes = await prisma.pendingChange.findMany({
-    where: session.role === "OWNER" ? undefined : { requestedBy: session.username },
+    where: {
+      departmentId: session.departmentId,
+      ...(session.role === "OWNER" ? {} : { requestedBy: session.username }),
+    },
     orderBy: { createdAt: "desc" },
   });
 

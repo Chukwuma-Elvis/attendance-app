@@ -11,8 +11,13 @@ const DEDUCTING_STATUSES = new Set(["LATE", "ABSENT"]);
 // Returns employees scheduled to work that date (by workingDays) plus anyone
 // already marked for that date, alongside their attendance record (if any).
 // Also returns the off-duty roster so an admin can add someone not
-// ordinarily on duty that day.
+// ordinarily on duty that day. Scoped to the caller's department.
 export async function GET(req: NextRequest) {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+  }
+
   const dateParam = req.nextUrl.searchParams.get("date");
   if (!dateParam) {
     return NextResponse.json({ error: "date query param is required (YYYY-MM-DD)." }, { status: 400 });
@@ -21,7 +26,7 @@ export async function GET(req: NextRequest) {
   const dayOfWeek = date.getUTCDay();
 
   const employees = await prisma.employee.findMany({
-    where: { active: true },
+    where: { active: true, departmentId: session.departmentId },
     orderBy: { name: "asc" },
     include: { attendance: { where: { date } } },
   });
@@ -59,16 +64,24 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { date: dateParam, records } = body as {
+  const { date: dateParam, records: rawRecords } = body as {
     date: string;
     records: { employeeId: string; status: string; note?: string }[];
   };
 
-  if (!dateParam || !Array.isArray(records)) {
+  if (!dateParam || !Array.isArray(rawRecords)) {
     return NextResponse.json({ error: "date and records[] are required." }, { status: 400 });
   }
 
   const date = new Date(dateParam);
+
+  // Only ever act on employees that actually belong to the caller's
+  // department, even if the request claims otherwise.
+  const ownEmployees = await prisma.employee.findMany({
+    where: { departmentId: session.departmentId, id: { in: rawRecords.map((r) => r.employeeId) } },
+  });
+  const ownIds = new Set(ownEmployees.map((e) => e.id));
+  const records = rawRecords.filter((r) => ownIds.has(r.employeeId));
 
   const toClear = records.filter((r) => !r.status);
   const withStatus = records.filter((r) => r.status);
@@ -81,16 +94,14 @@ export async function POST(req: NextRequest) {
     toApply = withStatus.filter((r) => !DEDUCTING_STATUSES.has(r.status));
 
     if (toQueue.length > 0) {
-      const employees = await prisma.employee.findMany({
-        where: { id: { in: toQueue.map((r) => r.employeeId) } },
-      });
-      const nameById = Object.fromEntries(employees.map((e) => [e.id, e.name]));
+      const nameById = Object.fromEntries(ownEmployees.map((e) => [e.id, e.name]));
 
       await Promise.all(
         toQueue.map((r) =>
           queuePendingChange({
             kind: "ATTENDANCE",
             requestedBy: session.username,
+            departmentId: session.departmentId,
             payload: { employeeId: r.employeeId, date: dateParam, status: r.status, note: r.note },
             summary: `Mark ${nameById[r.employeeId] ?? "employee"} ${r.status} on ${dateParam}`,
           })

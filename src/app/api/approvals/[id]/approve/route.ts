@@ -13,6 +13,11 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: "Only the owner account can approve changes." }, { status: 403 });
   }
 
+  const existing = await prisma.pendingChange.findUnique({ where: { id } });
+  if (!existing || existing.departmentId !== session.departmentId) {
+    return NextResponse.json({ error: "Pending change not found or already resolved." }, { status: 404 });
+  }
+
   const change = await applyPendingChange(id);
   if (!change) {
     return NextResponse.json({ error: "Pending change not found or already resolved." }, { status: 404 });

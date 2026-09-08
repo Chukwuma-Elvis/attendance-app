@@ -4,7 +4,14 @@ import { getSession } from "@/lib/session";
 import { queuePendingChange } from "@/lib/approvals";
 
 export async function GET() {
-  const rules = await prisma.penaltyRule.findMany({ orderBy: { key: "asc" } });
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+  }
+  const rules = await prisma.penaltyRule.findMany({
+    where: { departmentId: session.departmentId },
+    orderBy: { key: "asc" },
+  });
   return NextResponse.json(rules);
 }
 
@@ -23,11 +30,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "key and at least one of amount/label are required." }, { status: 400 });
   }
 
+  const where = { departmentId_key: { departmentId: session.departmentId, key } };
+
   if (session.role === "ASSISTANT" && amount !== undefined) {
-    const existing = await prisma.penaltyRule.findUnique({ where: { key } });
+    const existing = await prisma.penaltyRule.findUnique({ where });
     const pending = await queuePendingChange({
       kind: "PENALTY_RULE",
       requestedBy: session.username,
+      departmentId: session.departmentId,
       payload: { key, amount, label },
       summary: `Change ${existing?.label ?? key} penalty from ₦${(existing?.amount ?? 0).toLocaleString()} to ₦${Number(amount).toLocaleString()}`,
     });
@@ -35,7 +45,7 @@ export async function POST(req: NextRequest) {
   }
 
   const rule = await prisma.penaltyRule.update({
-    where: { key },
+    where,
     data: {
       ...(amount !== undefined ? { amount: Number(amount) } : {}),
       ...(label !== undefined ? { label: String(label) } : {}),

@@ -13,14 +13,24 @@ const ROLE_LABEL: Record<string, string> = {
 
 export default function MobileSidebar({ nav, children }: { nav: NavItem[]; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [username, setUsername] = useState<string | null>(null);
   const [roleLabel, setRoleLabel] = useState<string | null>(null);
+  const [departmentName, setDepartmentName] = useState<string | null>(null);
   const pathname = usePathname();
 
   useEffect(() => {
     fetch("/api/session")
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => setRoleLabel(data ? ROLE_LABEL[data.role] ?? data.role : null))
-      .catch(() => setRoleLabel(null));
+      .then((data) => {
+        setUsername(data?.username ?? null);
+        setRoleLabel(data ? ROLE_LABEL[data.role] ?? data.role : null);
+        setDepartmentName(data?.departmentName ?? null);
+      })
+      .catch(() => {
+        setUsername(null);
+        setRoleLabel(null);
+        setDepartmentName(null);
+      });
   }, []);
 
   return (
@@ -28,7 +38,13 @@ export default function MobileSidebar({ nav, children }: { nav: NavItem[]; child
       <div className="md:hidden flex items-center justify-between bg-white border-b border-gray-200 p-4">
         <div>
           <h2 className="font-bold text-lg">Attendance Admin</h2>
-          {roleLabel && <p className="text-xs text-gray-500">Logged in as {roleLabel}</p>}
+          {username && <p className="text-sm font-bold text-gray-900">{username}</p>}
+          {roleLabel && (
+            <p className="text-xs text-gray-500">
+              {roleLabel}
+              {departmentName ? ` · ${departmentName}` : ""}
+            </p>
+          )}
         </div>
         <button
           className="btn-secondary"
@@ -44,13 +60,19 @@ export default function MobileSidebar({ nav, children }: { nav: NavItem[]; child
       )}
 
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-40 w-60 shrink-0 bg-white border-r border-gray-200 p-5 flex flex-col transition-transform duration-200 md:translate-x-0 ${
+        className={`fixed md:sticky inset-y-0 md:inset-y-auto left-0 md:top-0 z-40 w-60 shrink-0 md:h-screen md:overflow-y-auto bg-white border-r border-gray-200 p-5 flex flex-col transition-transform duration-200 md:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="mb-6 hidden md:block">
           <h2 className="font-bold text-lg">Attendance Admin</h2>
-          {roleLabel && <p className="text-xs text-gray-500">Logged in as {roleLabel}</p>}
+          {username && <p className="text-sm font-bold text-gray-900">{username}</p>}
+          {roleLabel && (
+            <p className="text-xs text-gray-500">
+              {roleLabel}
+              {departmentName ? ` · ${departmentName}` : ""}
+            </p>
+          )}
         </div>
         <nav className="flex-1 space-y-1">
           {nav.map((item) => {

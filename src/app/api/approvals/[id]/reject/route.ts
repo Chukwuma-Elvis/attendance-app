@@ -13,7 +13,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   }
 
   const change = await prisma.pendingChange.findUnique({ where: { id } });
-  if (!change || change.status !== "PENDING") {
+  if (!change || change.status !== "PENDING" || change.departmentId !== session.departmentId) {
     return NextResponse.json({ error: "Pending change not found or already resolved." }, { status: 404 });
   }
 

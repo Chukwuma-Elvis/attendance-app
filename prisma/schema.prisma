@@ -33,17 +33,53 @@ enum PendingChangeStatus {
   REJECTED
 }
 
+enum AdminRole {
+  OWNER
+  ASSISTANT
+}
+
+// A separate team/roster with its own employees, penalty rules, and admin
+// logins. Nothing is shared between departments except the app itself.
+model Department {
+  id           String         @id @default(cuid())
+  name         String         @unique
+  createdAt    DateTime       @default(now())
+  employees    Employee[]
+  penaltyRules PenaltyRule[]
+  admins       AdminAccount[]
+  pendingChanges PendingChange[]
+
+  @@map("departments")
+}
+
+// Login accounts. Replaces the old env-var-based single admin/assistant
+// pair now that there can be more than one department, each with its own
+// owner (manager) and assistant.
+model AdminAccount {
+  id           String     @id @default(cuid())
+  username     String     @unique
+  passwordHash String
+  role         AdminRole
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@map("admin_accounts")
+}
+
 model Employee {
-  id          String        @id @default(cuid())
-  name        String
-  role        String
-  active      Boolean       @default(true)
+  id           String        @id @default(cuid())
+  departmentId String
+  department   Department    @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  name         String
+  role         String
+  active       Boolean       @default(true)
   // Days of week this employee is normally scheduled to work.
   // 0 = Sunday ... 6 = Saturday. Any day NOT in this list is treated as an off day.
-  workingDays Int[]         @default([0, 1, 2, 3, 4, 5, 6])
-  createdAt   DateTime      @default(now())
-  attendance  Attendance[]
-  infractions Infraction[]
+  workingDays  Int[]         @default([0, 1, 2, 3, 4, 5, 6])
+  createdAt    DateTime      @default(now())
+  attendance   Attendance[]
+  infractions  Infraction[]
 
   @@map("employees")
 }
@@ -77,12 +113,16 @@ model Infraction {
 
 // Configurable cash-penalty amounts (in your local currency's smallest
 // display unit, e.g. Naira) applied per occurrence of each deduction type.
+// Each department keeps its own independent set.
 model PenaltyRule {
-  id     String @id @default(cuid())
-  key    String @unique // LATE | ABSENT | MINOR_INFRACTION | MAJOR_INFRACTION | MISCELLANEOUS
-  label  String
-  amount Int
+  id           String     @id @default(cuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  key          String // LATE | ABSENT | MINOR_INFRACTION | MAJOR_INFRACTION | MISCELLANEOUS
+  label        String
+  amount       Int
 
+  @@unique([departmentId, key])
   @@map("penalty_rules")
 }
 
@@ -91,15 +131,17 @@ model PenaltyRule {
 // re-pricing a penalty rule). It sits here, unapplied, until the owner
 // admin approves or rejects it.
 model PendingChange {
-  id          String              @id @default(cuid())
-  kind        PendingChangeKind
-  summary     String
-  payload     Json
-  requestedBy String
-  status      PendingChangeStatus @default(PENDING)
-  createdAt   DateTime            @default(now())
-  resolvedAt  DateTime?
-  resolvedBy  String?
+  id           String              @id @default(cuid())
+  departmentId String
+  department   Department          @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  kind         PendingChangeKind
+  summary      String
+  payload      Json
+  requestedBy  String
+  status       PendingChangeStatus @default(PENDING)
+  createdAt    DateTime            @default(now())
+  resolvedAt   DateTime?
+  resolvedBy   String?
 
   @@map("pending_changes")
 }

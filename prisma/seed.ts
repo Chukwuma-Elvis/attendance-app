@@ -2,6 +2,10 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+// Which department this seed data belongs to. Change this (or run with a
+// different value) to seed a different department's starter roster.
+const DEPARTMENT_NAME = "Lulu Entertainment";
+
 // Pulled from LULU_ENTERTAINMENT_ATTENDANCE__25_AUGUST_-_30TH_SEPTEMBER.xlsx
 // Edit, remove, or add to this list freely before running `npm run seed`.
 const employees = [
@@ -49,22 +53,30 @@ const penaltyRules = [
 ];
 
 async function main() {
+  const department = await prisma.department.upsert({
+    where: { name: DEPARTMENT_NAME },
+    update: {},
+    create: { name: DEPARTMENT_NAME },
+  });
+
   for (const rule of penaltyRules) {
     await prisma.penaltyRule.upsert({
-      where: { key: rule.key },
+      where: { departmentId_key: { departmentId: department.id, key: rule.key } },
       update: {},
-      create: rule,
+      create: { ...rule, departmentId: department.id },
     });
   }
 
   for (const emp of employees) {
-    const existing = await prisma.employee.findFirst({ where: { name: emp.name } });
+    const existing = await prisma.employee.findFirst({ where: { name: emp.name, departmentId: department.id } });
     if (!existing) {
-      await prisma.employee.create({ data: emp });
+      await prisma.employee.create({ data: { ...emp, departmentId: department.id } });
     }
   }
 
-  console.log(`Seeded ${penaltyRules.length} penalty rules and ${employees.length} employees.`);
+  console.log(
+    `Seeded ${penaltyRules.length} penalty rules and ${employees.length} employees into "${DEPARTMENT_NAME}".`
+  );
 }
 
 main()
