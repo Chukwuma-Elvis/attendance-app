@@ -71,6 +71,21 @@ export async function GET(req: NextRequest) {
   let totalExcused = 0;
   let totalOffDay = 0;
 
+  const daysInMonth = Array.from({ length: totalDaysInMonth }, (_, index) => {
+    const dayNum = index + 1;
+    const dateStr = `${yearStr}-${mStr}-${String(dayNum).padStart(2, "0")}`;
+    const d = new Date(Date.UTC(year, month - 1, dayNum));
+    const dayOfWeek = d.getUTCDay();
+    const dayLabel = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][dayOfWeek];
+    return {
+      date: dateStr,
+      dayNum,
+      dayOfWeek,
+      dayLabel,
+      dateLabel: `${month}/${dayNum}`,
+    };
+  });
+
   const employeeSummaries = employees.map((emp) => {
     const present = emp.attendance.filter((a) => a.status === "PRESENT").length;
     const late = emp.attendance.filter((a) => a.status === "LATE").length;
@@ -93,6 +108,32 @@ export async function GET(req: NextRequest) {
     const totalDutyMarked = present + late + absent;
     const attendanceRate = totalDutyMarked > 0 ? Math.round((present / totalDutyMarked) * 100) : null;
 
+    const attMap = new Map(emp.attendance.map((a) => [toISODate(a.date), a]));
+    const infMap = new Map<string, number>();
+    for (const inf of emp.infractions) {
+      const d = toISODate(inf.date);
+      infMap.set(d, (infMap.get(d) ?? 0) + inf.amount);
+    }
+
+    const days = daysInMonth.map((d) => {
+      const att = attMap.get(d.date);
+      let status: "PRESENT" | "LATE" | "ABSENT" | "EXCUSED" | "OFF" | null = null;
+      if (att) {
+        status = att.status === "OFF_DAY" ? "OFF" : (att.status as any);
+      } else if (!emp.workingDays.includes(d.dayOfWeek)) {
+        status = "OFF";
+      }
+
+      return {
+        date: d.date,
+        dayNum: d.dayNum,
+        dayOfWeek: d.dayOfWeek,
+        status,
+        note: att?.note ?? null,
+        infractionAmount: infMap.get(d.date) ?? 0,
+      };
+    });
+
     return {
       employeeId: emp.id,
       name: emp.name,
@@ -108,6 +149,7 @@ export async function GET(req: NextRequest) {
       cashFromAttendance,
       totalDeductions,
       attendanceRate,
+      days,
     };
   });
 
@@ -227,6 +269,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     month: targetMonth,
     departmentName: session.departmentName,
+    daysInMonth,
     overview: {
       totalEmployees: employees.length,
       totalPresent,
