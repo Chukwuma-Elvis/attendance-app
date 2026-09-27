@@ -4,8 +4,8 @@ import MobileSidebar from "./MobileSidebar";
 const NAV = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/attendance", label: "Mark Attendance" },
-  { href: "/admin/day-summary", label: "Day Summary" },
-  { href: "/admin/infractions", label: "Infractions" },   // <-- add this line
+  { href: "/admin/month-summary", label: "Month Summary" },
+  { href: "/admin/infractions", label: "Infractions" },
   { href: "/admin/employees", label: "Employees" },
   { href: "/admin/deductions", label: "Deductions" },
   { href: "/admin/settings", label: "Penalty Settings" },

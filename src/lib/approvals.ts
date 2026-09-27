@@ -35,10 +35,32 @@ export async function applyPendingChange(id: string) {
       create: { employeeId, date: new Date(date), status, note },
     });
   } else if (change.kind === "INFRACTION") {
-    const { employeeId, date, type, description, amount } = payload;
-    await prisma.infraction.create({
-      data: { employeeId, date: new Date(date), type, description, amount },
-    });
+    const { action, infractionId, employeeId, date, type, description, amount } = payload;
+    if (action === "DELETE") {
+      const existing = await prisma.infraction.findUnique({ where: { id: infractionId } });
+      if (existing) {
+        await prisma.infraction.delete({ where: { id: infractionId } });
+      }
+    } else if (action === "UPDATE") {
+      const existing = await prisma.infraction.findUnique({ where: { id: infractionId } });
+      if (existing) {
+        await prisma.infraction.update({
+          where: { id: infractionId },
+          data: {
+            ...(employeeId ? { employeeId } : {}),
+            ...(date ? { date: new Date(date) } : {}),
+            ...(type ? { type } : {}),
+            description: description !== undefined ? description : existing.description,
+            ...(amount !== undefined ? { amount } : {}),
+          },
+        });
+      }
+    } else {
+      // Default: create new infraction
+      await prisma.infraction.create({
+        data: { employeeId, date: new Date(date), type, description, amount },
+      });
+    }
   } else if (change.kind === "PENALTY_RULE") {
     const { key, amount, label } = payload;
     await prisma.penaltyRule.update({

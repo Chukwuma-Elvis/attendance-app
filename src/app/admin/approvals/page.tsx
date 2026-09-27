@@ -41,9 +41,17 @@ export default function ApprovalsPage() {
     load();
   }, []);
 
-  async function act(id: string, action: "approve" | "reject") {
+  async function act(id: string, action: "approve" | "reject" | "cancel") {
+    if (action === "cancel") {
+      const confirmed = window.confirm("Cancel this pending request?");
+      if (!confirmed) return;
+    }
     setActingId(id);
-    await fetch(`/api/approvals/${id}/${action}`, { method: "POST" });
+    if (action === "cancel") {
+      await fetch(`/api/approvals/${id}`, { method: "DELETE" });
+    } else {
+      await fetch(`/api/approvals/${id}/${action}`, { method: "POST" });
+    }
     setActingId(null);
     load();
   }
@@ -72,13 +80,13 @@ export default function ApprovalsPage() {
               <th>Summary</th>
               <th>Requested By</th>
               <th>Submitted</th>
-              {role === "OWNER" && <th></th>}
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {!loading && pending.length === 0 && (
               <tr>
-                <td colSpan={role === "OWNER" ? 4 : 3} className="text-center text-gray-400 py-6">
+                <td colSpan={4} className="text-center text-gray-400 py-6">
                   Nothing pending.
                 </td>
               </tr>
@@ -88,26 +96,36 @@ export default function ApprovalsPage() {
                 <td>{c.summary}</td>
                 <td>{c.requestedBy}</td>
                 <td>{new Date(c.createdAt).toLocaleString()}</td>
-                {role === "OWNER" && (
-                  <td>
-                    <div className="flex gap-2">
+                <td>
+                  <div className="flex gap-2">
+                    {role === "OWNER" ? (
+                      <>
+                        <button
+                          className="btn-primary text-xs"
+                          disabled={actingId === c.id}
+                          onClick={() => act(c.id, "approve")}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          className="btn-secondary text-xs"
+                          disabled={actingId === c.id}
+                          onClick={() => act(c.id, "reject")}
+                        >
+                          Reject
+                        </button>
+                      </>
+                    ) : (
                       <button
-                        className="btn-primary text-xs"
+                        className="text-xs rounded-lg px-2.5 py-1 font-medium text-gray-500 hover:bg-gray-100 border border-gray-200"
                         disabled={actingId === c.id}
-                        onClick={() => act(c.id, "approve")}
+                        onClick={() => act(c.id, "cancel")}
                       >
-                        Approve
+                        Cancel Request
                       </button>
-                      <button
-                        className="btn-secondary text-xs"
-                        disabled={actingId === c.id}
-                        onClick={() => act(c.id, "reject")}
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  </td>
-                )}
+                    )}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
