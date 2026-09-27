@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import EmployeeCalendarModal from "./EmployeeCalendarModal";
 
 type Employee = {
   id: string;
@@ -23,24 +24,6 @@ type Breakdown = {
   totalDeduction: number;
 };
 
-const DAYS = [
-  { n: 0, label: "Sun" },
-  { n: 1, label: "Mon" },
-  { n: 2, label: "Tue" },
-  { n: 3, label: "Wed" },
-  { n: 4, label: "Thu" },
-  { n: 5, label: "Fri" },
-  { n: 6, label: "Sat" },
-];
-
-function formatCurrency(n: number) {
-  return new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(n);
-}
-
-function pct(part: number, total: number) {
-  return total > 0 ? Math.round((part / total) * 100) : null;
-}
-
 function toISODate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
@@ -59,9 +42,6 @@ export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [breakdowns, setBreakdowns] = useState<Record<string, Breakdown>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<Record<string, { name: string; role: string }>>({});
-  const [savingId, setSavingId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [search, setSearch] = useState("");
@@ -108,36 +88,6 @@ export default function EmployeesPage() {
 
   function toggleExpanded(emp: Employee) {
     setExpandedId((prev) => (prev === emp.id ? null : emp.id));
-    setDrafts((prev) => (prev[emp.id] ? prev : { ...prev, [emp.id]: { name: emp.name, role: emp.role } }));
-  }
-
-  function updateDraft(id: string, field: "name" | "role", value: string) {
-    setDrafts((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
-  }
-
-  async function saveDetails(emp: Employee) {
-    const draft = drafts[emp.id];
-    if (!draft || !draft.name.trim() || !draft.role.trim()) return;
-    setSavingId(emp.id);
-    await fetch(`/api/employees/${emp.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: draft.name.trim(), role: draft.role.trim() }),
-    });
-    setSavingId(null);
-    load();
-  }
-
-  async function deleteEmployee(emp: Employee) {
-    const confirmed = window.confirm(
-      `Delete ${emp.name}? This permanently removes their attendance history, infractions, and schedule. This cannot be undone.`
-    );
-    if (!confirmed) return;
-    setDeletingId(emp.id);
-    await fetch(`/api/employees/${emp.id}`, { method: "DELETE" });
-    setDeletingId(null);
-    setExpandedId((prev) => (prev === emp.id ? null : prev));
-    load();
   }
 
   async function addEmployee(e: React.FormEvent) {
@@ -157,27 +107,6 @@ export default function EmployeesPage() {
   function toggleSearch() {
     if (searchOpen) setSearch("");
     setSearchOpen((v) => !v);
-  }
-
-  async function toggleActive(emp: Employee) {
-    await fetch(`/api/employees/${emp.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ active: !emp.active }),
-    });
-    load();
-  }
-
-  async function toggleWorkingDay(emp: Employee, day: number) {
-    const workingDays = emp.workingDays.includes(day)
-      ? emp.workingDays.filter((d) => d !== day)
-      : [...emp.workingDays, day].sort();
-    await fetch(`/api/employees/${emp.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workingDays }),
-    });
-    load();
   }
 
   const roles = Array.from(new Set(employees.map((e) => e.role))).sort();
@@ -349,127 +278,12 @@ export default function EmployeesPage() {
         (() => {
           const emp = employees.find((e) => e.id === expandedId);
           if (!emp) return null;
-          const b = breakdowns[emp.id];
-          const totalMarked = b ? b.present + b.late + b.absent + b.excused : 0;
-          const presentPct = b ? pct(b.present, totalMarked) : null;
-          const latePct = b ? pct(b.late, totalMarked) : null;
-
           return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-black/50" onClick={() => setExpandedId(null)} />
-              <div className="relative bg-white rounded-xl shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-200">
-                  <div className="min-w-0">
-                    <p className="font-medium truncate">{emp.name}</p>
-                    <p className="text-sm text-gray-500 truncate">{emp.role}</p>
-                  </div>
-                  <button
-                    onClick={() => setExpandedId(null)}
-                    aria-label="Close"
-                    className="text-gray-400 hover:text-gray-600 text-2xl leading-none px-1"
-                  >
-                    &times;
-                  </button>
-                </div>
-
-                <div className="p-4 space-y-5">
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-600 mb-2">Details</h3>
-                    <div className="flex flex-wrap items-end gap-3">
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Name</label>
-                        <input
-                          className="input"
-                          value={drafts[emp.id]?.name ?? emp.name}
-                          onChange={(e) => updateDraft(emp.id, "name", e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Role</label>
-                        <input
-                          className="input"
-                          value={drafts[emp.id]?.role ?? emp.role}
-                          onChange={(e) => updateDraft(emp.id, "role", e.target.value)}
-                        />
-                      </div>
-                      <button
-                        className="btn-primary text-xs"
-                        onClick={() => saveDetails(emp)}
-                        disabled={savingId === emp.id}
-                      >
-                        {savingId === emp.id ? "Saving..." : "Save"}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-600 mb-2">Attendance Summary</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-xs text-gray-500">Present</p>
-                        <p className="text-lg font-semibold">{presentPct === null ? "—" : `${presentPct}%`}</p>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-xs text-gray-500">Late</p>
-                        <p className="text-lg font-semibold">{latePct === null ? "—" : `${latePct}%`}</p>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-xs text-gray-500">Absences</p>
-                        <p className="text-lg font-semibold">{b?.absent ?? 0}</p>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-xs text-gray-500">Excused</p>
-                        <p className="text-lg font-semibold">{b?.excused ?? 0}</p>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-xs text-gray-500">Minor Infractions</p>
-                        <p className="text-lg font-semibold">{b?.minorInfractions ?? 0}</p>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-xs text-gray-500">Major Infractions</p>
-                        <p className="text-lg font-semibold">{b?.majorInfractions ?? 0}</p>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-3 col-span-2 sm:col-span-2">
-                        <p className="text-xs text-gray-500">Total Deductions</p>
-                        <p className="text-lg font-semibold text-brand">{formatCurrency(b?.totalDeduction ?? 0)}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-600 mb-2">Weekly Schedule</h3>
-                    <div className="flex gap-1 flex-wrap">
-                      {DAYS.map((d) => (
-                        <button
-                          key={d.n}
-                          onClick={() => toggleWorkingDay(emp, d.n)}
-                          className={`text-xs rounded px-2 py-1 ${
-                            emp.workingDays.includes(d.n)
-                              ? "bg-brand text-white"
-                              : "bg-gray-100 text-gray-500"
-                          }`}
-                        >
-                          {d.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button onClick={() => toggleActive(emp)} className="btn-secondary text-xs">
-                      {emp.active ? "Deactivate" : "Reactivate"}
-                    </button>
-                    <button
-                      onClick={() => deleteEmployee(emp)}
-                      disabled={deletingId === emp.id}
-                      className="text-xs rounded-lg px-4 py-2 font-medium bg-red-50 text-red-600 hover:bg-red-100"
-                    >
-                      {deletingId === emp.id ? "Deleting..." : "Delete Employee"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <EmployeeCalendarModal
+              employee={emp}
+              onClose={() => setExpandedId(null)}
+              onEmployeeUpdated={load}
+            />
           );
         })()}
     </div>
