@@ -48,7 +48,24 @@ export async function computeDeductions(opts: {
     const late = emp.attendance.filter((a) => a.status === "LATE").length;
     const absent = emp.attendance.filter((a) => a.status === "ABSENT").length;
     const excused = emp.attendance.filter((a) => a.status === "EXCUSED").length;
-    const offDay = emp.attendance.filter((a) => a.status === "OFF_DAY").length;
+    let offDay = emp.attendance.filter((a) => a.status === "OFF_DAY").length;
+    if (opts?.from && opts?.to) {
+      const attMap = new Map(emp.attendance.map((a) => [a.date.toISOString().slice(0, 10), a]));
+      let offCount = 0;
+      const start = new Date(Date.UTC(opts.from.getUTCFullYear(), opts.from.getUTCMonth(), opts.from.getUTCDate()));
+      const end = new Date(Date.UTC(opts.to.getUTCFullYear(), opts.to.getUTCMonth(), opts.to.getUTCDate()));
+      for (let cur = new Date(start); cur <= end; cur.setUTCDate(cur.getUTCDate() + 1)) {
+        const dStr = cur.toISOString().slice(0, 10);
+        const dayOfWeek = cur.getUTCDay();
+        const att = attMap.get(dStr);
+        if (att) {
+          if (att.status === "OFF_DAY") offCount++;
+        } else if (!emp.workingDays.includes(dayOfWeek)) {
+          offCount++;
+        }
+      }
+      offDay = offCount;
+    }
 
     const minorInfractions = emp.infractions.filter((i) => i.type === "MINOR").length;
     const majorInfractions = emp.infractions.filter((i) => i.type === "MAJOR").length;

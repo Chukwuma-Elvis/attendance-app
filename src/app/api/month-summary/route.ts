@@ -91,13 +91,6 @@ export async function GET(req: NextRequest) {
     const late = emp.attendance.filter((a) => a.status === "LATE").length;
     const absent = emp.attendance.filter((a) => a.status === "ABSENT").length;
     const excused = emp.attendance.filter((a) => a.status === "EXCUSED").length;
-    const offDay = emp.attendance.filter((a) => a.status === "OFF_DAY").length;
-
-    totalPresent += present;
-    totalLate += late;
-    totalAbsent += absent;
-    totalExcused += excused;
-    totalOffDay += offDay;
 
     const infractionsCount = emp.infractions.length;
     const infractionsTotal = emp.infractions.reduce((sum, i) => sum + i.amount, 0);
@@ -133,6 +126,14 @@ export async function GET(req: NextRequest) {
         infractionAmount: infMap.get(d.date) ?? 0,
       };
     });
+
+    const offDay = days.filter((d) => d.status === "OFF").length;
+
+    totalPresent += present;
+    totalLate += late;
+    totalAbsent += absent;
+    totalExcused += excused;
+    totalOffDay += offDay;
 
     return {
       employeeId: emp.id,
@@ -237,15 +238,16 @@ export async function GET(req: NextRequest) {
     let late = 0;
     let absent = 0;
     let excused = 0;
+    let off = 0;
 
-    for (const emp of employees) {
-      for (const a of emp.attendance) {
-        if (toISODate(a.date) === dateStr) {
-          if (a.status === "PRESENT") present++;
-          else if (a.status === "LATE") late++;
-          else if (a.status === "ABSENT") absent++;
-          else if (a.status === "EXCUSED") excused++;
-        }
+    for (const emp of employeeSummaries) {
+      const day = emp.days.find((d) => d.date === dateStr);
+      if (day) {
+        if (day.status === "PRESENT") present++;
+        else if (day.status === "LATE") late++;
+        else if (day.status === "ABSENT") absent++;
+        else if (day.status === "EXCUSED") excused++;
+        else if (day.status === "OFF") off++;
       }
     }
 
@@ -261,6 +263,7 @@ export async function GET(req: NextRequest) {
       late,
       absent,
       excused,
+      off,
       totalMarked: present + late + absent + excused,
       deductions: dayDeductions,
     };

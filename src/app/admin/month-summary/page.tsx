@@ -553,7 +553,7 @@ export default function MonthSummaryPage() {
                         {emp.excused}
                       </td>
                       <td className="py-2 px-2 text-center text-gray-500 bg-gray-100/40">
-                        {emp.offDay}
+                        {emp.days ? emp.days.filter((d) => d.status === "OFF").length : emp.offDay}
                       </td>
                       <td className="py-2 px-3 text-right font-bold text-gray-900 border-l border-gray-200 whitespace-nowrap">
                         {emp.totalDeductions > 0 ? (
@@ -567,6 +567,47 @@ export default function MonthSummaryPage() {
                     </tr>
                   ))}
                 </tbody>
+
+                {/* Table Footer Totals */}
+                {filteredEmployees.length > 0 && (
+                  <tfoot className="bg-gray-50 border-t-2 border-gray-300 font-bold text-gray-800">
+                    <tr>
+                      <td className="sticky left-0 z-20 bg-gray-100 py-2.5 px-3 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]">
+                        Totals ({filteredEmployees.length})
+                      </td>
+                      <td className="py-2 px-2 text-gray-400">—</td>
+                      {daysInMonth.map((d) => (
+                        <td
+                          key={d.date}
+                          className="py-1 px-0.5 text-center text-[10px] text-gray-400 border-l border-gray-100"
+                        >
+                          —
+                        </td>
+                      ))}
+                      <td className="py-2 px-2 text-center font-bold text-emerald-800 bg-emerald-50/50 border-l border-gray-200">
+                        {filteredEmployees.reduce((sum, e) => sum + e.present, 0)}
+                      </td>
+                      <td className="py-2 px-2 text-center font-bold text-amber-800 bg-amber-50/50">
+                        {filteredEmployees.reduce((sum, e) => sum + e.late, 0)}
+                      </td>
+                      <td className="py-2 px-2 text-center font-bold text-rose-800 bg-rose-50/50">
+                        {filteredEmployees.reduce((sum, e) => sum + e.absent, 0)}
+                      </td>
+                      <td className="py-2 px-2 text-center font-bold text-purple-800 bg-purple-50/50">
+                        {filteredEmployees.reduce((sum, e) => sum + e.excused, 0)}
+                      </td>
+                      <td className="py-2 px-2 text-center font-bold text-gray-600 bg-gray-100/70">
+                        {filteredEmployees.reduce(
+                          (sum, e) => sum + (e.days ? e.days.filter((d) => d.status === "OFF").length : e.offDay),
+                          0
+                        )}
+                      </td>
+                      <td className="py-2 px-3 text-right font-extrabold text-gray-900 border-l border-gray-200 whitespace-nowrap">
+                        {formatCurrency(filteredEmployees.reduce((sum, e) => sum + e.totalDeductions, 0))}
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           </div>
