@@ -12,11 +12,12 @@ import { prisma } from "@/lib/db";
  * Gets Relying Party (RP) configuration based on incoming request host.
  */
 export function getRelyingPartyConfig(reqHost: string) {
-  // Extract hostname without port (e.g., "localhost" from "localhost:3000")
-  const hostname = reqHost.split(":")[0];
+  // Clean comma-separated proxy hosts and port numbers (e.g. from x-forwarded-host)
+  const cleanHost = reqHost.split(",")[0].trim();
+  const hostname = cleanHost.split(":")[0];
   const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1";
   const protocol = isLocalhost ? "http" : "https";
-  const origin = `${protocol}://${reqHost}`;
+  const origin = `${protocol}://${cleanHost}`;
 
   return {
     rpName: "Employee Attendance Portal",

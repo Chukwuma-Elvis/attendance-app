@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "employeeId and biometric response are required." }, { status: 400 });
     }
 
-    const host = req.headers.get("host") || "localhost:3000";
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "localhost:3000";
     const verification = await verifyAndSaveRegistration(employeeId, response, host, deviceName);
 
     if (verification.verified) {

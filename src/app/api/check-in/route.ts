@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { department } = employee;
-    const host = req.headers.get("host") || "localhost:3000";
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "localhost:3000";
 
     // 2. Verify Phone Biometric Signature (WebAuthn Passkey)
     const verification = await verifyAuthentication(employeeId, response, host);

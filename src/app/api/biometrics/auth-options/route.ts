@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "employeeId is required." }, { status: 400 });
     }
 
-    const host = req.headers.get("host") || "localhost:3000";
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "localhost:3000";
     const options = await createAuthenticationChallenge(employeeId, host);
 
     return NextResponse.json(options);

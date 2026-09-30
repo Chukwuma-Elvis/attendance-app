@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const host = req.headers.get("host") || "localhost:3000";
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "localhost:3000";
     const options = await createRegistrationChallenge(employee, host);
 
     return NextResponse.json(options);
