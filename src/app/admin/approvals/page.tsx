@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 type Change = {
   id: string;
-  kind: "ATTENDANCE" | "INFRACTION" | "PENALTY_RULE";
+  kind: "ATTENDANCE" | "INFRACTION" | "PENALTY_RULE" | "BIOMETRIC_RESET";
   summary: string;
   requestedBy: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
@@ -65,7 +65,7 @@ export default function ApprovalsPage() {
         <h1 className="text-2xl font-semibold">Approvals</h1>
         <p className="text-sm text-gray-500 mt-1">
           {role === "OWNER"
-            ? "Changes submitted by the assistant account that lead to a cash deduction wait here until you approve or reject them."
+            ? "Changes submitted by the assistant account (deductions) and employee biometric device reset requests wait here until you approve or reject them."
             : "Your submitted changes that lead to a cash deduction wait here until the owner approves or rejects them."}
         </p>
       </div>

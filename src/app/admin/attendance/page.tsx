@@ -8,7 +8,21 @@ type Row = {
   role: string;
   status: string | null;
   note: string | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+  checkInMethod?: string | null;
+  checkOutMethod?: string | null;
 };
+
+function formatClock(iso?: string | null) {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "—";
+  }
+}
 
 type OffDutyEmployee = {
   employeeId: string;
@@ -245,28 +259,54 @@ export default function AttendancePage() {
             <tr>
               <th>Name</th>
               <th>Role</th>
-              <th>Status</th>
+              <th>Check-In</th>
+              <th>Check-Out</th>
+              <th>Status (Manual Override)</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={3} className="text-center text-gray-400 py-6">
+                <td colSpan={5} className="text-center text-gray-400 py-6">
                   Loading...
                 </td>
               </tr>
             )}
             {!loading && displayRows.length === 0 && (
               <tr>
-                <td colSpan={3} className="text-center text-gray-400 py-6">
+                <td colSpan={5} className="text-center text-gray-400 py-6">
                   No employees match this filter.
                 </td>
               </tr>
             )}
             {displayRows.map((r) => (
               <tr key={r.employeeId}>
-                <td>{r.name}</td>
-                <td>{r.role}</td>
+                <td className="font-medium text-gray-900">{r.name}</td>
+                <td className="text-gray-600">{r.role}</td>
+                <td>
+                  <div className="flex items-center gap-1.5 text-sm">
+                    {r.checkInMethod === "BIOMETRIC_MOBILE" && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800" title="Verified with Phone Biometric + GPS">
+                        📱 Biometric
+                      </span>
+                    )}
+                    <span className={r.checkInTime ? "font-mono font-medium text-gray-800" : "text-gray-400"}>
+                      {formatClock(r.checkInTime)}
+                    </span>
+                  </div>
+                </td>
+                <td>
+                  <div className="flex items-center gap-1.5 text-sm">
+                    {r.checkOutMethod === "BIOMETRIC_MOBILE" && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-800" title="Verified with Phone Biometric + GPS">
+                        📱 Biometric
+                      </span>
+                    )}
+                    <span className={r.checkOutTime ? "font-mono font-medium text-gray-800" : "text-gray-400"}>
+                      {formatClock(r.checkOutTime)}
+                    </span>
+                  </div>
+                </td>
                 <td>
                   <div className="flex items-center gap-2 flex-wrap">
                     <select

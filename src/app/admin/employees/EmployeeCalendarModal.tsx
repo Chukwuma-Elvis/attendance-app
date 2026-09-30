@@ -8,6 +8,11 @@ type Employee = {
   role: string;
   active: boolean;
   workingDays: number[];
+  biometricResetRequested?: boolean;
+  biometricResetAllowed?: boolean;
+  _count?: {
+    biometricCredentials: number;
+  };
 };
 
 type AttendanceRecord = {
@@ -243,6 +248,36 @@ export default function EmployeeCalendarModal({
       body: JSON.stringify({ workingDays }),
     });
     onEmployeeUpdated();
+  }
+
+  const [biometricActionLoading, setBiometricActionLoading] = useState(false);
+  const [biometricActionMsg, setBiometricActionMsg] = useState<string | null>(null);
+
+  async function handleBiometricAction(action: "ALLOW_RESET" | "REVOKE" | "REJECT_RESET") {
+    if (action === "REVOKE") {
+      const confirmed = window.confirm(
+        `Revoke and clear biometric enrollment for ${employee.name}? They will need to perform initial device setup again.`
+      );
+      if (!confirmed) return;
+    }
+    setBiometricActionLoading(true);
+    setBiometricActionMsg(null);
+    try {
+      const res = await fetch(`/api/employees/${employee.id}/biometrics`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Action failed.");
+      setBiometricActionMsg(data.message);
+      onEmployeeUpdated();
+      setTimeout(() => setBiometricActionMsg(null), 4000);
+    } catch (err: any) {
+      alert(err.message || "Failed to update biometric status.");
+    } finally {
+      setBiometricActionLoading(false);
+    }
   }
 
   async function deleteEmployee() {
@@ -710,6 +745,102 @@ export default function EmployeeCalendarModal({
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Biometric Device Security & Authorization */}
+              <div className="pt-4 border-t border-gray-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+                    <span>🔐</span> Mobile Biometrics & Device Lock
+                  </h3>
+                  <span
+                    className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${
+                      (employee._count?.biometricCredentials ?? 0) > 0
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-gray-100 text-gray-600"
+                    }`}
+                  >
+                    {(employee._count?.biometricCredentials ?? 0) > 0
+                      ? "Device Paired"
+                      : "Not Enrolled"}
+                  </span>
+                </div>
+
+                <p className="text-xs text-gray-500">
+                  Employees cannot change their registered biometric device without admin authorization. This prevents buddy punching and unauthorized phone switching.
+                </p>
+
+                {biometricActionMsg && (
+                  <div className="p-2.5 rounded-lg bg-emerald-50 text-emerald-800 text-xs border border-emerald-200">
+                    {biometricActionMsg}
+                  </div>
+                )}
+
+                {/* If employee has requested a reset */}
+                {employee.biometricResetRequested && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs space-y-2">
+                    <p className="font-bold text-amber-900 flex items-center gap-1">
+                      <span>⏳</span> Biometric Device Change Requested
+                    </p>
+                    <p className="text-[11px] text-amber-800">
+                      {employee.name} requested permission to register a new phone/device.
+                    </p>
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleBiometricAction("ALLOW_RESET")}
+                        disabled={biometricActionLoading}
+                        className="btn-primary !bg-emerald-600 hover:!bg-emerald-700 text-xs !py-1.5 shadow-sm"
+                      >
+                        Approve Device Change
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleBiometricAction("REJECT_RESET")}
+                        disabled={biometricActionLoading}
+                        className="btn-secondary text-xs !py-1.5"
+                      >
+                        Reject Request
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* If reset is already allowed */}
+                {employee.biometricResetAllowed && !employee.biometricResetRequested && (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs space-y-1">
+                    <p className="font-bold text-emerald-900 flex items-center gap-1">
+                      <span>🔓</span> Permission Granted
+                    </p>
+                    <p className="text-[11px] text-emerald-800">
+                      {employee.name} is authorized to register a new device from the self-check-in portal. Once paired, the lock will reactivate automatically.
+                    </p>
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                {(employee._count?.biometricCredentials ?? 0) > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap pt-1">
+                    {!employee.biometricResetAllowed && !employee.biometricResetRequested && (
+                      <button
+                        type="button"
+                        onClick={() => handleBiometricAction("ALLOW_RESET")}
+                        disabled={biometricActionLoading}
+                        className="btn-secondary text-xs !py-1.5 flex items-center gap-1"
+                      >
+                        <span>🔓</span> Allow Biometric Re-Registration
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleBiometricAction("REVOKE")}
+                      disabled={biometricActionLoading}
+                      className="text-xs text-red-600 hover:text-red-700 hover:underline px-2 py-1 font-medium"
+                    >
+                      Revoke &amp; Clear Biometrics
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Status and Danger Zone */}

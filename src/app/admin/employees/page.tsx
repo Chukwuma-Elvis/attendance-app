@@ -9,6 +9,11 @@ type Employee = {
   role: string;
   active: boolean;
   workingDays: number[];
+  biometricResetRequested?: boolean;
+  biometricResetAllowed?: boolean;
+  _count?: {
+    biometricCredentials: number;
+  };
 };
 
 type Breakdown = {
@@ -230,13 +235,25 @@ export default function EmployeesPage() {
               <span className="font-medium truncate">{emp.name}</span>
               <span className="text-sm text-gray-500 truncate">{emp.role}</span>
             </div>
-            <span
-              className={`shrink-0 text-xs rounded-full px-2 py-1 ${
-                emp.active ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-500"
-              }`}
-            >
-              {emp.active ? "Active" : "Inactive"}
-            </span>
+            <div className="flex items-center gap-2 shrink-0">
+              {emp.biometricResetRequested && (
+                <span className="text-xs bg-amber-100 text-amber-800 font-semibold px-2 py-0.5 rounded-full border border-amber-300 animate-pulse">
+                  ⏳ Reset Requested
+                </span>
+              )}
+              {emp.biometricResetAllowed && !emp.biometricResetRequested && (
+                <span className="text-xs bg-blue-100 text-blue-700 font-semibold px-2 py-0.5 rounded-full border border-blue-300">
+                  🔓 Reset Allowed
+                </span>
+              )}
+              <span
+                className={`text-xs rounded-full px-2 py-1 ${
+                  emp.active ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-500"
+                }`}
+              >
+                {emp.active ? "Active" : "Inactive"}
+              </span>
+            </div>
           </button>
         ))}
       </div>

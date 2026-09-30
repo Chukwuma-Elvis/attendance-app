@@ -17,6 +17,16 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: "Pending change not found or already resolved." }, { status: 404 });
   }
 
+  if (change.kind === "BIOMETRIC_RESET") {
+    const payload = change.payload as any;
+    if (payload?.employeeId) {
+      await prisma.employee.update({
+        where: { id: payload.employeeId },
+        data: { biometricResetRequested: false },
+      }).catch(() => {});
+    }
+  }
+
   const updated = await prisma.pendingChange.update({
     where: { id },
     data: { status: "REJECTED", resolvedAt: new Date(), resolvedBy: session.username },

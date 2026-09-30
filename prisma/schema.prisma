@@ -25,6 +25,7 @@ enum PendingChangeKind {
   ATTENDANCE
   INFRACTION
   PENALTY_RULE
+  BIOMETRIC_RESET
 }
 
 enum PendingChangeStatus {
@@ -41,13 +42,22 @@ enum AdminRole {
 // A separate team/roster with its own employees, penalty rules, and admin
 // logins. Nothing is shared between departments except the app itself.
 model Department {
-  id           String         @id @default(cuid())
-  name         String         @unique
-  createdAt    DateTime       @default(now())
-  employees    Employee[]
-  penaltyRules PenaltyRule[]
-  admins       AdminAccount[]
-  pendingChanges PendingChange[]
+  id                 String           @id @default(cuid())
+  name               String           @unique
+  venueName          String?          // e.g. "Studio A / Main Venue"
+  venueLatitude      Float?           // e.g. 6.5244
+  venueLongitude     Float?           // e.g. 3.3792
+  venueRadiusMeters  Int              @default(100) // Allowed check-in radius from venue center
+  checkInStartTime   String           @default("07:00") // Earliest check-in (HH:mm)
+  checkInCutoffTime  String           @default("09:15") // On-time cutoff; later is LATE (HH:mm)
+  checkInEndTime     String           @default("13:00") // Latest check-in window (HH:mm)
+  checkOutStartTime  String           @default("16:30") // Earliest check-out window (HH:mm)
+  checkOutEndTime    String           @default("21:00") // Latest check-out window (HH:mm)
+  createdAt          DateTime         @default(now())
+  employees          Employee[]
+  penaltyRules       PenaltyRule[]
+  admins             AdminAccount[]
+  pendingChanges     PendingChange[]
 
   @@map("departments")
 }
@@ -68,34 +78,72 @@ model AdminAccount {
 }
 
 model Employee {
-  id           String        @id @default(cuid())
-  departmentId String
-  department   Department    @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  name         String
-  role         String
-  active       Boolean       @default(true)
+  id                   String                @id @default(cuid())
+  departmentId         String
+  department           Department            @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  name                 String
+  role                 String
+  active               Boolean               @default(true)
   // Days of week this employee is normally scheduled to work.
   // 0 = Sunday ... 6 = Saturday. Any day NOT in this list is treated as an off day.
-  workingDays  Int[]         @default([0, 1, 2, 3, 4, 5, 6])
-  createdAt    DateTime      @default(now())
-  attendance   Attendance[]
-  infractions  Infraction[]
+  workingDays          Int[]                 @default([0, 1, 2, 3, 4, 5, 6])
+  biometricResetRequested Boolean            @default(false)
+  biometricResetAllowed   Boolean            @default(false)
+  createdAt            DateTime              @default(now())
+  attendance           Attendance[]
+  infractions          Infraction[]
+  biometricCredentials BiometricCredential[]
 
   @@map("employees")
 }
 
 model Attendance {
-  id         String           @id @default(cuid())
-  employeeId String
-  employee   Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  date       DateTime         @db.Date
-  status     AttendanceStatus
-  note       String?
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
+  id             String           @id @default(cuid())
+  employeeId     String
+  employee       Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date           DateTime         @db.Date
+  status         AttendanceStatus
+  note           String?
+  checkInTime    DateTime?
+  checkOutTime   DateTime?
+  checkInLat     Float?
+  checkInLng     Float?
+  checkOutLat    Float?
+  checkOutLng    Float?
+  checkInMethod  String?          // "BIOMETRIC_MOBILE" | "MANUAL_ADMIN"
+  checkOutMethod String?          // "BIOMETRIC_MOBILE" | "MANUAL_ADMIN"
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   @@unique([employeeId, date])
   @@map("attendance")
+}
+
+model BiometricCredential {
+  id           String   @id @default(cuid())
+  employeeId   String
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  credentialId String   @unique
+  publicKey    Bytes
+  counter      BigInt   @default(0)
+  deviceType   String?
+  backedUp     Boolean  @default(false)
+  transports   String[] @default([])
+  deviceName   String?
+  createdAt    DateTime @default(now())
+
+  @@map("biometric_credentials")
+}
+
+model BiometricChallenge {
+  id         String   @id @default(cuid())
+  employeeId String?
+  challenge  String
+  purpose    String   // "REGISTRATION" | "AUTHENTICATION"
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@map("biometric_challenges")
 }
 
 model Infraction {

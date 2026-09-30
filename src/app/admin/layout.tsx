@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/session";
 import LogoutButton from "./LogoutButton";
 import MobileSidebar from "./MobileSidebar";
 
@@ -8,11 +10,17 @@ const NAV = [
   { href: "/admin/infractions", label: "Infractions" },
   { href: "/admin/employees", label: "Employees" },
   { href: "/admin/deductions", label: "Deductions" },
-  { href: "/admin/settings", label: "Penalty Settings" },
+  { href: "/admin/settings", label: "Venue & Settings" },
   { href: "/admin/approvals", label: "Approvals" },
+  { href: "/check-in", label: "📱 Self Check-In" },
 ];
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const session = await getSession();
+  if (!session) {
+    redirect("/login");
+  }
+
   return (
     <div className="min-h-screen md:flex">
       <MobileSidebar nav={NAV}>

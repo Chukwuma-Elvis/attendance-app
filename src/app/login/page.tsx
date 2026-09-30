@@ -60,6 +60,14 @@ export default function LoginPage() {
         <button className="btn-primary w-full" disabled={loading}>
           {loading ? "Signing in..." : "Sign in"}
         </button>
+        <div className="pt-2 border-t border-gray-100 text-center">
+          <a
+            href="/check-in"
+            className="text-xs font-medium text-brand hover:underline inline-flex items-center gap-1"
+          >
+            <span>📱</span> Are you an employee? Go to Self Check-In &rarr;
+          </a>
+        </div>
       </form>
     </div>
   );

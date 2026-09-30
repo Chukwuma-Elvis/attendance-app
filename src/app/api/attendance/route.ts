@@ -34,13 +34,20 @@ export async function GET(req: NextRequest) {
   const onDuty = employees.filter((e) => e.workingDays.includes(dayOfWeek) || e.attendance.length > 0);
   const offDuty = employees.filter((e) => !e.workingDays.includes(dayOfWeek) && e.attendance.length === 0);
 
-  const rows = onDuty.map((e) => ({
-    employeeId: e.id,
-    name: e.name,
-    role: e.role,
-    status: e.attendance[0]?.status ?? null,
-    note: e.attendance[0]?.note ?? null,
-  }));
+  const rows = onDuty.map((e) => {
+    const att = e.attendance[0];
+    return {
+      employeeId: e.id,
+      name: e.name,
+      role: e.role,
+      status: att?.status ?? null,
+      note: att?.note ?? null,
+      checkInTime: att?.checkInTime ? att.checkInTime.toISOString() : null,
+      checkOutTime: att?.checkOutTime ? att.checkOutTime.toISOString() : null,
+      checkInMethod: att?.checkInMethod ?? null,
+      checkOutMethod: att?.checkOutMethod ?? null,
+    };
+  });
 
   return NextResponse.json({
     rows,

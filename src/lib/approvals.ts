@@ -70,6 +70,17 @@ export async function applyPendingChange(id: string) {
         ...(label !== undefined ? { label: String(label) } : {}),
       },
     });
+  } else if (change.kind === "BIOMETRIC_RESET") {
+    const { employeeId } = payload;
+    if (employeeId) {
+      await prisma.employee.update({
+        where: { id: employeeId },
+        data: {
+          biometricResetAllowed: true,
+          biometricResetRequested: false,
+        },
+      });
+    }
   }
 
   return change;

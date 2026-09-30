@@ -27,6 +27,16 @@ export async function DELETE(
     return NextResponse.json({ error: "You can only cancel your own pending changes." }, { status: 403 });
   }
 
+  if (change.kind === "BIOMETRIC_RESET") {
+    const payload = change.payload as any;
+    if (payload?.employeeId) {
+      await prisma.employee.update({
+        where: { id: payload.employeeId },
+        data: { biometricResetRequested: false },
+      }).catch(() => {});
+    }
+  }
+
   await prisma.pendingChange.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }
