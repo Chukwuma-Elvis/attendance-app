@@ -257,11 +257,11 @@ export default function AttendancePage() {
         <table className="data-table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Role</th>
-              <th>Check-In</th>
-              <th>Check-Out</th>
-              <th>Status (Manual Override)</th>
+              <th className="min-w-[140px]">Name</th>
+              <th className="min-w-[100px]">Role</th>
+              <th className="w-28 text-center whitespace-nowrap">Check-In</th>
+              <th className="w-28 text-center whitespace-nowrap">Check-Out</th>
+              <th className="min-w-[180px]">Status (Manual Override)</th>
             </tr>
           </thead>
           <tbody>
@@ -283,29 +283,37 @@ export default function AttendancePage() {
               <tr key={r.employeeId}>
                 <td className="font-medium text-gray-900">{r.name}</td>
                 <td className="text-gray-600">{r.role}</td>
-                <td>
-                  <div className="flex items-center gap-1.5 text-sm">
-                    {r.checkInMethod === "BIOMETRIC_MOBILE" && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800" title="Verified with Phone Biometric + GPS">
-                        📱 Biometric
-                      </span>
-                    )}
-                    <span className={r.checkInTime ? "font-mono font-medium text-gray-800" : "text-gray-400"}>
+                <td className="w-28 text-center whitespace-nowrap">
+                  {r.checkInTime ? (
+                    <span
+                      className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-semibold font-mono ${
+                        r.checkInMethod === "BIOMETRIC_MOBILE"
+                          ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                          : "bg-gray-100 text-gray-700 border border-gray-200"
+                      }`}
+                      title={r.checkInMethod === "BIOMETRIC_MOBILE" ? "Verified with Phone Biometric + GPS" : "Check-In"}
+                    >
                       {formatClock(r.checkInTime)}
                     </span>
-                  </div>
+                  ) : (
+                    <span className="text-gray-300 font-mono text-xs">—</span>
+                  )}
                 </td>
-                <td>
-                  <div className="flex items-center gap-1.5 text-sm">
-                    {r.checkOutMethod === "BIOMETRIC_MOBILE" && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-800" title="Verified with Phone Biometric + GPS">
-                        📱 Biometric
-                      </span>
-                    )}
-                    <span className={r.checkOutTime ? "font-mono font-medium text-gray-800" : "text-gray-400"}>
+                <td className="w-28 text-center whitespace-nowrap">
+                  {r.checkOutTime ? (
+                    <span
+                      className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-semibold font-mono ${
+                        r.checkOutMethod === "BIOMETRIC_MOBILE"
+                          ? "bg-indigo-100 text-indigo-800 border border-indigo-200"
+                          : "bg-gray-100 text-gray-700 border border-gray-200"
+                      }`}
+                      title={r.checkOutMethod === "BIOMETRIC_MOBILE" ? "Verified with Phone Biometric + GPS" : "Check-Out"}
+                    >
                       {formatClock(r.checkOutTime)}
                     </span>
-                  </div>
+                  ) : (
+                    <span className="text-gray-300 font-mono text-xs">—</span>
+                  )}
                 </td>
                 <td>
                   <div className="flex items-center gap-2 flex-wrap">
