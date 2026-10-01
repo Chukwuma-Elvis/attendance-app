@@ -88,6 +88,26 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  const [showTimes, setShowTimes] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("attendance_show_times");
+      if (saved !== null) {
+        setShowTimes(saved === "true");
+      }
+    } catch {}
+  }, []);
+
+  function toggleShowTimes() {
+    setShowTimes((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("attendance_show_times", String(next));
+      } catch {}
+      return next;
+    });
+  }
 
   async function load(d: string) {
     setLoading(true);
@@ -253,93 +273,152 @@ export default function AttendancePage() {
         </div>
       </div>
 
-      <div className="card overflow-x-auto">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th className="min-w-[140px]">Name</th>
-              <th className="min-w-[100px]">Role</th>
-              <th className="w-28 text-center whitespace-nowrap">Check-In</th>
-              <th className="w-28 text-center whitespace-nowrap">Check-Out</th>
-              <th className="min-w-[180px]">Status (Manual Override)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (
+      <div className="card space-y-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <h2 className="font-semibold text-gray-900 text-sm">Attendance List</h2>
+            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">
+              {displayRows.length}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={toggleShowTimes}
+            className={`btn text-xs !py-1.5 !px-3 font-medium flex items-center gap-1.5 border transition-all ${
+              showTimes
+                ? "bg-brand/10 text-brand border-brand/30 hover:bg-brand/20"
+                : "bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200"
+            }`}
+          >
+            <span>⏱️</span>
+            <span>{showTimes ? "Hide Check-In / Out Times" : "Show Check-In / Out Times"}</span>
+            <span className="text-[10px]">{showTimes ? "◂" : "▸"}</span>
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="data-table">
+            <thead>
               <tr>
-                <td colSpan={5} className="text-center text-gray-400 py-6">
-                  Loading...
-                </td>
-              </tr>
-            )}
-            {!loading && displayRows.length === 0 && (
-              <tr>
-                <td colSpan={5} className="text-center text-gray-400 py-6">
-                  No employees match this filter.
-                </td>
-              </tr>
-            )}
-            {displayRows.map((r) => (
-              <tr key={r.employeeId}>
-                <td className="font-medium text-gray-900">{r.name}</td>
-                <td className="text-gray-600">{r.role}</td>
-                <td className="w-28 text-center whitespace-nowrap">
-                  {r.checkInTime ? (
-                    <span
-                      className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-semibold font-mono ${
-                        r.checkInMethod === "BIOMETRIC_MOBILE"
-                          ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                          : "bg-gray-100 text-gray-700 border border-gray-200"
-                      }`}
-                      title={r.checkInMethod === "BIOMETRIC_MOBILE" ? "Verified with Phone Biometric + GPS" : "Check-In"}
-                    >
-                      {formatClock(r.checkInTime)}
-                    </span>
-                  ) : (
-                    <span className="text-gray-300 font-mono text-xs">—</span>
-                  )}
-                </td>
-                <td className="w-28 text-center whitespace-nowrap">
-                  {r.checkOutTime ? (
-                    <span
-                      className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-semibold font-mono ${
-                        r.checkOutMethod === "BIOMETRIC_MOBILE"
-                          ? "bg-indigo-100 text-indigo-800 border border-indigo-200"
-                          : "bg-gray-100 text-gray-700 border border-gray-200"
-                      }`}
-                      title={r.checkOutMethod === "BIOMETRIC_MOBILE" ? "Verified with Phone Biometric + GPS" : "Check-Out"}
-                    >
-                      {formatClock(r.checkOutTime)}
-                    </span>
-                  ) : (
-                    <span className="text-gray-300 font-mono text-xs">—</span>
-                  )}
-                </td>
-                <td>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <select
-                      className={statusSelectClasses(r.status)}
-                      value={r.status ?? ""}
-                      onChange={(e) => setStatus(r.employeeId, e.target.value)}
-                    >
-                      <option value="">Unset</option>
-                      {STATUSES.map((s) => (
-                        <option key={s} value={s}>
-                          {s.replace("_", " ")}
-                        </option>
-                      ))}
-                    </select>
-                    {pendingByEmployee[r.employeeId] && (
-                      <span className="text-xs rounded-full px-2 py-1 bg-yellow-100 text-yellow-700">
-                        Pending: {pendingByEmployee[r.employeeId].replace("_", " ")}
-                      </span>
+                <th className="min-w-[140px]">Name</th>
+                <th className="min-w-[100px]">Role</th>
+                <th className="min-w-[180px]">
+                  <div className="flex items-center justify-between gap-2">
+                    <span>Status (Manual Override)</span>
+                    {!showTimes && (
+                      <button
+                        type="button"
+                        onClick={toggleShowTimes}
+                        className="text-xs font-normal text-brand hover:underline flex items-center gap-0.5 shrink-0"
+                        title="Expand Check-In and Check-Out columns"
+                      >
+                        <span>⏱️ Times</span>
+                        <span>▸</span>
+                      </button>
                     )}
                   </div>
-                </td>
+                </th>
+                {showTimes && (
+                  <>
+                    <th className="w-28 text-center whitespace-nowrap">Check-In</th>
+                    <th className="w-28 text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Check-Out</span>
+                        <button
+                          type="button"
+                          onClick={toggleShowTimes}
+                          className="text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded px-1 text-xs"
+                          title="Collapse check-in/out columns"
+                        >
+                          ◂
+                        </button>
+                      </div>
+                    </th>
+                  </>
+                )}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {loading && (
+                <tr>
+                  <td colSpan={showTimes ? 5 : 3} className="text-center text-gray-400 py-6">
+                    Loading...
+                  </td>
+                </tr>
+              )}
+              {!loading && displayRows.length === 0 && (
+                <tr>
+                  <td colSpan={showTimes ? 5 : 3} className="text-center text-gray-400 py-6">
+                    No employees match this filter.
+                  </td>
+                </tr>
+              )}
+              {displayRows.map((r) => (
+                <tr key={r.employeeId}>
+                  <td className="font-medium text-gray-900">{r.name}</td>
+                  <td className="text-gray-600">{r.role}</td>
+                  <td>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <select
+                        className={statusSelectClasses(r.status)}
+                        value={r.status ?? ""}
+                        onChange={(e) => setStatus(r.employeeId, e.target.value)}
+                      >
+                        <option value="">Unset</option>
+                        {STATUSES.map((s) => (
+                          <option key={s} value={s}>
+                            {s.replace("_", " ")}
+                          </option>
+                        ))}
+                      </select>
+                      {pendingByEmployee[r.employeeId] && (
+                        <span className="text-xs rounded-full px-2 py-1 bg-yellow-100 text-yellow-700">
+                          Pending: {pendingByEmployee[r.employeeId].replace("_", " ")}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  {showTimes && (
+                    <>
+                      <td className="w-28 text-center whitespace-nowrap">
+                        {r.checkInTime ? (
+                          <span
+                            className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-semibold font-mono ${
+                              r.checkInMethod === "BIOMETRIC_MOBILE"
+                                ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                : "bg-gray-100 text-gray-700 border border-gray-200"
+                            }`}
+                            title={r.checkInMethod === "BIOMETRIC_MOBILE" ? "Verified with Phone Biometric + GPS" : "Check-In"}
+                          >
+                            {formatClock(r.checkInTime)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300 font-mono text-xs">—</span>
+                        )}
+                      </td>
+                      <td className="w-28 text-center whitespace-nowrap">
+                        {r.checkOutTime ? (
+                          <span
+                            className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-semibold font-mono ${
+                              r.checkOutMethod === "BIOMETRIC_MOBILE"
+                                ? "bg-indigo-100 text-indigo-800 border border-indigo-200"
+                                : "bg-gray-100 text-gray-700 border border-gray-200"
+                            }`}
+                            title={r.checkOutMethod === "BIOMETRIC_MOBILE" ? "Verified with Phone Biometric + GPS" : "Check-Out"}
+                          >
+                            {formatClock(r.checkOutTime)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300 font-mono text-xs">—</span>
+                        )}
+                      </td>
+                    </>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
