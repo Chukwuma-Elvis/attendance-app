@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyAuthentication } from "@/lib/webauthn";
-import { verifyGeofence, evaluateCheckInTime, evaluateCheckOutTime } from "@/lib/geo";
+import {
+  verifyGeofence,
+  evaluateCheckInTime,
+  evaluateCheckOutTime,
+  isOvernightDepartment,
+  getLogicalShiftDate,
+} from "@/lib/geo";
 
 export const runtime = "nodejs";
 
@@ -124,17 +130,47 @@ export async function POST(req: NextRequest) {
     const now = new Date();
     const dateStr = getLocalDateString(now, clientDate);
     const timeStr = getLocalTimeString(now, clientTime);
-    const dateObj = new Date(`${dateStr}T00:00:00.000Z`);
 
-    // Check existing attendance record for today
-    const existingAttendance = await prisma.attendance.findUnique({
+    // Detect if this department operates an overnight shift spanning into the next morning
+    const isOvernight = isOvernightDepartment({
+      checkInStart: department.checkInStartTime,
+      checkInEnd: department.checkInEndTime,
+      checkOutStart: department.checkOutStartTime,
+      checkOutEnd: department.checkOutEndTime,
+    });
+
+    // Logical shift date maps early-morning check-ins/check-outs back to the night the shift started
+    const shiftDateStr = getLogicalShiftDate(
+      dateStr,
+      timeStr,
+      department.checkInStartTime,
+      isOvernight
+    );
+    const shiftDateObj = new Date(`${shiftDateStr}T00:00:00.000Z`);
+
+    // Check existing attendance record for the shift date
+    let existingAttendance = await prisma.attendance.findUnique({
       where: {
         employeeId_date: {
           employeeId: employee.id,
-          date: dateObj,
+          date: shiftDateObj,
         },
       },
     });
+
+    // Fallback for CHECK_OUT: if no record is found on shiftDateObj,
+    // look for the most recent open check-in (within 24h) for this employee
+    if (action === "CHECK_OUT" && !existingAttendance) {
+      const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      existingAttendance = await prisma.attendance.findFirst({
+        where: {
+          employeeId: employee.id,
+          checkInTime: { gte: twentyFourHoursAgo },
+          checkOutTime: null,
+        },
+        orderBy: { checkInTime: "desc" },
+      });
+    }
 
     if (action === "CHECK_IN") {
       // Check if already checked in today
@@ -173,12 +209,12 @@ export async function POST(req: NextRequest) {
         where: {
           employeeId_date: {
             employeeId: employee.id,
-            date: dateObj,
+            date: shiftDateObj,
           },
         },
         create: {
           employeeId: employee.id,
-          date: dateObj,
+          date: shiftDateObj,
           status,
           note,
           checkInTime: now,
@@ -211,7 +247,7 @@ export async function POST(req: NextRequest) {
     } else if (action === "CHECK_OUT") {
       if (!existingAttendance) {
         return NextResponse.json(
-          { error: "No check-in record found for today. You must check in before checking out." },
+          { error: "No check-in record found for this shift. You must check in before checking out." },
           { status: 400 }
         );
       }
@@ -220,7 +256,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           success: true,
           alreadyCheckedOut: true,
-          message: `Already checked out today at ${existingAttendance.checkOutTime.toLocaleTimeString([], {
+          message: `Already checked out for this shift at ${existingAttendance.checkOutTime.toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
           })}.`,

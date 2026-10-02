@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { isOvernightDepartment } from "@/lib/geo";
 
 type Rule = { id: string; key: string; label: string; amount: number };
 
@@ -31,6 +32,15 @@ export default function SettingsPage() {
   const [savingDept, setSavingDept] = useState(false);
   const [deptMessage, setDeptMessage] = useState<{ text: string; error?: boolean } | null>(null);
   const [detectingGps, setDetectingGps] = useState(false);
+
+  const isOvernight = deptSettings
+    ? isOvernightDepartment({
+        checkInStart: deptSettings.checkInStartTime,
+        checkInEnd: deptSettings.checkInEndTime,
+        checkOutStart: deptSettings.checkOutStartTime,
+        checkOutEnd: deptSettings.checkOutEndTime,
+      })
+    : false;
 
   async function load() {
     setLoading(true);
@@ -264,15 +274,34 @@ export default function SettingsPage() {
 
           {/* SECTION 2: SHIFT TIMINGS */}
           <div className="pt-4 border-t border-gray-100 space-y-4">
-            <div>
-              <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
-                <span>⏰</span>
-                <span>Check-In & Check-Out Shift Windows</span>
-              </h3>
-              <p className="text-xs text-gray-500">
-                Check-ins after the <strong>On-Time Cutoff</strong> are automatically marked as <strong>LATE</strong> and deduct the late penalty.
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
+                  <span>⏰</span>
+                  <span>Check-In & Check-Out Shift Windows</span>
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Check-ins after the <strong>On-Time Cutoff</strong> are automatically marked as <strong>LATE</strong> and deduct the late penalty.
+                </p>
+              </div>
+              {isOvernight && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 border border-purple-200 self-start sm:self-auto">
+                  <span>🌙</span> Overnight Shift Active
+                </span>
+              )}
             </div>
+
+            {isOvernight && (
+              <div className="bg-purple-50/70 border border-purple-200 rounded-xl p-3 text-xs text-purple-950 flex items-start gap-2.5">
+                <span className="text-base shrink-0">🌙</span>
+                <div className="space-y-0.5">
+                  <p className="font-bold text-purple-900">Overnight Shift (Crosses Midnight)</p>
+                  <p className="text-[11px] text-purple-700 leading-relaxed">
+                    Check-out occurs in the early morning of the following calendar day. The system will automatically map next-morning check-outs back to the shift date on which staff arrived.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
@@ -340,7 +369,9 @@ export default function SettingsPage() {
                     )
                   }
                 />
-                <span className="text-[10px] text-gray-400">Earliest allowed departure</span>
+                <span className="text-[10px] text-gray-400">
+                  {isOvernight ? "Earliest departure (Next Morning 🌙)" : "Earliest allowed departure"}
+                </span>
               </div>
 
               <div>
@@ -357,7 +388,9 @@ export default function SettingsPage() {
                     )
                   }
                 />
-                <span className="text-[10px] text-gray-400">Latest departure check-out</span>
+                <span className="text-[10px] text-gray-400">
+                  {isOvernight ? "Latest departure (Next Morning 🌙)" : "Latest departure check-out"}
+                </span>
               </div>
             </div>
           </div>

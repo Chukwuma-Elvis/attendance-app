@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser";
+import { isTimeInWindow, isOvernightDepartment } from "@/lib/geo";
 
 type DepartmentInfo = {
   id: string;
@@ -210,31 +211,36 @@ export default function MobileCheckInPage() {
   }
 
   // Shift time window evaluations (using local device clock)
-  const nowHM = currentHM || `${String(new Date().getHours()).padStart(2, "0")}:${String(new Date().getMinutes()).padStart(2, "0")}`;
+  const nowHM =
+    currentHM ||
+    `${String(new Date().getHours()).padStart(2, "0")}:${String(
+      new Date().getMinutes()
+    ).padStart(2, "0")}`;
 
-  let isCheckInTimeActive = true;
-  let checkInTimeNotice: string | null = null;
-  if (activeDept) {
-    if (nowHM < activeDept.shifts.checkInStart) {
-      isCheckInTimeActive = false;
-      checkInTimeNotice = `Opens at ${activeDept.shifts.checkInStart}`;
-    } else if (nowHM > activeDept.shifts.checkInEnd) {
-      isCheckInTimeActive = false;
-      checkInTimeNotice = `Closed at ${activeDept.shifts.checkInEnd}`;
-    }
-  }
+  const isOvernight = activeDept
+    ? isOvernightDepartment({
+        checkInStart: activeDept.shifts.checkInStart,
+        checkInEnd: activeDept.shifts.checkInEnd,
+        checkOutStart: activeDept.shifts.checkOutStart,
+        checkOutEnd: activeDept.shifts.checkOutEnd,
+      })
+    : false;
 
-  let isCheckOutTimeActive = true;
-  let checkOutTimeNotice: string | null = null;
-  if (activeDept) {
-    if (nowHM < activeDept.shifts.checkOutStart) {
-      isCheckOutTimeActive = false;
-      checkOutTimeNotice = `Opens at ${activeDept.shifts.checkOutStart}`;
-    } else if (nowHM > activeDept.shifts.checkOutEnd) {
-      isCheckOutTimeActive = false;
-      checkOutTimeNotice = `Closed at ${activeDept.shifts.checkOutEnd}`;
-    }
-  }
+  const isCheckInTimeActive = activeDept
+    ? isTimeInWindow(nowHM, activeDept.shifts.checkInStart, activeDept.shifts.checkInEnd)
+    : false;
+
+  const isCheckOutTimeActive = activeDept
+    ? isTimeInWindow(nowHM, activeDept.shifts.checkOutStart, activeDept.shifts.checkOutEnd)
+    : false;
+
+  const checkInTimeNotice = isCheckInTimeActive
+    ? `Open until ${activeDept?.shifts.checkInEnd}`
+    : `Opens at ${activeDept?.shifts.checkInStart}`;
+
+  const checkOutTimeNotice = isCheckOutTimeActive
+    ? `Open until ${activeDept?.shifts.checkOutEnd}`
+    : `Opens at ${activeDept?.shifts.checkOutStart}${isOvernight ? " (Next Morning)" : ""}`;
 
   // Location MUST be granted and confirmed before check-in or check-out is allowed
   const hasConfirmedLocation = location !== null && !locating && !permissionDenied;
@@ -505,10 +511,15 @@ export default function MobileCheckInPage() {
                   {activeDept.shifts.checkInCutoff}
                 </span>
               </div>
-              <div className="flex justify-between items-center text-[11px] text-gray-400">
+              <div className="flex justify-between items-center text-[11px] text-gray-500">
                 <span>Check-Out Window:</span>
-                <span>
+                <span className="font-medium text-gray-800">
                   {activeDept.shifts.checkOutStart} – {activeDept.shifts.checkOutEnd}
+                  {isOvernight && (
+                    <span className="ml-1.5 inline-block text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.2 rounded">
+                      Next Morning 🌙
+                    </span>
+                  )}
                 </span>
               </div>
             </div>
@@ -698,11 +709,11 @@ export default function MobileCheckInPage() {
             ) : (
               /* Already registered: Show Check-In & Check-Out buttons */
               <div className="space-y-3">
-                {/* Specific status notice when action is prevented */}
-                {(!canCheckIn || !canCheckOut) && (
+                {/* Contextual status banner */}
+                {!hasConfirmedLocation || isInsideGeofence === false ? (
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 flex items-start gap-2">
                     <span className="text-base shrink-0">
-                      {!hasConfirmedLocation ? "📍" : isInsideGeofence === false ? "⚠️" : "⏰"}
+                      {permissionDenied ? "🚫" : locating ? "📡" : !hasConfirmedLocation ? "📍" : "⚠️"}
                     </span>
                     <div className="space-y-0.5">
                       <p className="font-bold">
@@ -712,11 +723,7 @@ export default function MobileCheckInPage() {
                           ? "Acquiring GPS Location..."
                           : !hasConfirmedLocation
                           ? "Step 3: Location Confirmation Required"
-                          : isInsideGeofence === false
-                          ? "Outside Workplace Venue Radius"
-                          : !isCheckInTimeActive && !isCheckOutTimeActive
-                          ? "Outside Shift Hours"
-                          : "Attendance Portal Status"}
+                          : "Outside Workplace Venue Radius"}
                       </p>
                       <p className="text-[11px] text-amber-800">
                         {permissionDenied
@@ -724,20 +731,42 @@ export default function MobileCheckInPage() {
                           : locating
                           ? "Please wait while your GPS coordinates are being acquired."
                           : !hasConfirmedLocation
-                          ? "Please tap \"Confirm Location\" in Step 3 above so we can verify your presence at the venue."
-                          : isInsideGeofence === false
-                          ? `You are ${distanceToVenue}m away from ${activeDept?.venueName || "the workplace"}. Check-in is allowed within ${activeDept?.venueRadiusMeters}m.`
-                          : !isCheckInTimeActive && !isCheckOutTimeActive
-                          ? `Check-in hours are ${activeDept?.shifts.checkInStart} – ${activeDept?.shifts.checkInEnd}. Current time: ${nowHM}.`
-                          : !isCheckInTimeActive
-                          ? `Check-in is currently closed (${checkInTimeNotice}). Current time: ${nowHM}.`
-                          : !isCheckOutTimeActive
-                          ? `Check-out is currently closed (${checkOutTimeNotice}). Current time: ${nowHM}.`
-                          : "Ready to verify attendance."}
+                          ? 'Please tap "Confirm Location" in Step 3 above so we can verify your presence at the venue.'
+                          : `You are ${distanceToVenue}m away from ${activeDept?.venueName || "the workplace"}. Check-in is allowed within ${activeDept?.venueRadiusMeters}m.`}
                       </p>
                     </div>
                   </div>
-                )}
+                ) : isCheckOutTimeActive && !isCheckInTimeActive ? (
+                  <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-xs text-indigo-950 flex items-start gap-2">
+                    <span className="text-base shrink-0">🌙</span>
+                    <div className="space-y-0.5">
+                      <p className="font-bold text-indigo-900">Check-Out Window is Active</p>
+                      <p className="text-[11px] text-indigo-800">
+                        Departure check-out is currently open until {activeDept?.shifts.checkOutEnd}. Tap &ldquo;Check Out&rdquo; below to confirm your departure.
+                      </p>
+                    </div>
+                  </div>
+                ) : isCheckInTimeActive && !isCheckOutTimeActive ? (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-950 flex items-start gap-2">
+                    <span className="text-base shrink-0">☀️</span>
+                    <div className="space-y-0.5">
+                      <p className="font-bold text-emerald-900">Check-In Window is Active</p>
+                      <p className="text-[11px] text-emerald-800">
+                        Arrival check-in is currently open until {activeDept?.shifts.checkInEnd}. Tap &ldquo;Check In&rdquo; below to record your attendance.
+                      </p>
+                    </div>
+                  </div>
+                ) : !isCheckInTimeActive && !isCheckOutTimeActive ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 flex items-start gap-2">
+                    <span className="text-base shrink-0">⏰</span>
+                    <div className="space-y-0.5">
+                      <p className="font-bold">Outside Shift Hours</p>
+                      <p className="text-[11px] text-amber-800">
+                        Check-in: {activeDept?.shifts.checkInStart} – {activeDept?.shifts.checkInEnd} | Check-out: {activeDept?.shifts.checkOutStart} – {activeDept?.shifts.checkOutEnd}. Current time: {nowHM}.
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="grid grid-cols-2 gap-3">
                   <button
