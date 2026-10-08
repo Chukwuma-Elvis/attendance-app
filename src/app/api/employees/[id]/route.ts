@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { hashPin, isValidPinFormat } from "@/lib/pin";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -62,8 +63,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }),
   ]);
 
+  const { pinHash, ...safeEmployee } = employee;
+
   return NextResponse.json({
-    employee,
+    employee: {
+      ...safeEmployee,
+      hasPinSet: Boolean(pinHash),
+    },
     month: targetMonth,
     attendance: attendance.map((a) => ({
       id: a.id,
@@ -104,6 +110,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     customCheckInEndTime,
     customCheckOutStartTime,
     customCheckOutEndTime,
+    pinCheckInAllowed,
+    pin,
+    clearPin,
   } = body;
 
   const dataToUpdate: Record<string, any> = {};
@@ -127,6 +136,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
   if (customCheckOutEndTime !== undefined) {
     dataToUpdate.customCheckOutEndTime = customCheckOutEndTime ? String(customCheckOutEndTime).trim() : null;
+  }
+
+  // PIN check-in configuration
+  if (pinCheckInAllowed !== undefined) {
+    dataToUpdate.pinCheckInAllowed = Boolean(pinCheckInAllowed);
+  }
+  if (clearPin === true) {
+    dataToUpdate.pinCheckInAllowed = false;
+    dataToUpdate.pinHash = null;
+  } else if (pin !== undefined && pin !== null) {
+    const cleanPin = String(pin).trim();
+    if (cleanPin) {
+      if (!isValidPinFormat(cleanPin)) {
+        return NextResponse.json({ error: "PIN must be exactly 6 digits." }, { status: 400 });
+      }
+      dataToUpdate.pinHash = hashPin(cleanPin);
+      dataToUpdate.pinCheckInAllowed = true;
+    }
   }
 
   // updateMany scoped to the caller's department so one department can never
@@ -154,7 +181,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       },
     },
   });
-  return NextResponse.json(employee);
+
+  if (!employee) {
+    return NextResponse.json({ error: "Employee not found." }, { status: 404 });
+  }
+
+  const { pinHash, ...safeEmployee } = employee;
+  return NextResponse.json({
+    ...safeEmployee,
+    hasPinSet: Boolean(pinHash),
+  });
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

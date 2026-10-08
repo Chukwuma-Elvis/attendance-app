@@ -15,6 +15,8 @@ type Employee = {
   customCheckInEndTime?: string | null;
   customCheckOutStartTime?: string | null;
   customCheckOutEndTime?: string | null;
+  pinCheckInAllowed?: boolean;
+  hasPinSet?: boolean;
   department?: {
     checkInStartTime?: string;
     checkInCutoffTime?: string;
@@ -134,6 +136,14 @@ export default function EmployeeCalendarModal({
   const [savingShifts, setSavingShifts] = useState(false);
   const [shiftMsg, setShiftMsg] = useState<string | null>(null);
 
+  // PIN check-in state
+  const [pinAllowed, setPinAllowed] = useState(Boolean(employee.pinCheckInAllowed));
+  const [hasPinSet, setHasPinSet] = useState(Boolean(employee.hasPinSet));
+  const [pinDraft, setPinDraft] = useState("");
+  const [showPin, setShowPin] = useState(false);
+  const [savingPin, setSavingPin] = useState(false);
+  const [pinMsg, setPinMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   // Fetch monthly attendance and infractions for the employee
   useEffect(() => {
     let cancelled = false;
@@ -165,6 +175,12 @@ export default function EmployeeCalendarModal({
             }
             if (data.employee.customCheckOutEndTime !== undefined) {
               setCustomOutEnd(data.employee.customCheckOutEndTime ?? "");
+            }
+            if (data.employee.pinCheckInAllowed !== undefined) {
+              setPinAllowed(Boolean(data.employee.pinCheckInAllowed));
+            }
+            if (data.employee.hasPinSet !== undefined) {
+              setHasPinSet(Boolean(data.employee.hasPinSet));
             }
           }
         }
@@ -354,6 +370,97 @@ export default function EmployeeCalendarModal({
       alert(err.message || "Failed to reset shift timings.");
     } finally {
       setSavingShifts(false);
+    }
+  }
+
+  function generateRandomPin() {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    setPinDraft(code);
+    setShowPin(true);
+    setPinMsg(null);
+  }
+
+  async function savePin() {
+    const cleaned = pinDraft.trim();
+    if (!/^\d{6}$/.test(cleaned)) {
+      setPinMsg({ type: "error", text: "PIN must be exactly 6 digits." });
+      return;
+    }
+    setSavingPin(true);
+    setPinMsg(null);
+    try {
+      const res = await fetch(`/api/employees/${employee.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: cleaned, pinCheckInAllowed: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save PIN.");
+      setHasPinSet(true);
+      setPinAllowed(true);
+      setPinDraft("");
+      setShowPin(false);
+      setPinMsg({ type: "success", text: "6-digit PIN saved and enabled for check-in! ✓" });
+      onEmployeeUpdated();
+      setTimeout(() => setPinMsg(null), 4000);
+    } catch (err: any) {
+      setPinMsg({ type: "error", text: err.message || "Failed to save PIN." });
+    } finally {
+      setSavingPin(false);
+    }
+  }
+
+  async function togglePinAllowed() {
+    setSavingPin(true);
+    setPinMsg(null);
+    try {
+      const nextAllowed = !pinAllowed;
+      const res = await fetch(`/api/employees/${employee.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pinCheckInAllowed: nextAllowed }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update PIN permission.");
+      setPinAllowed(nextAllowed);
+      setPinMsg({
+        type: "success",
+        text: nextAllowed ? "PIN check-in permitted! ✓" : "PIN check-in disabled for this employee. ✓",
+      });
+      onEmployeeUpdated();
+      setTimeout(() => setPinMsg(null), 3500);
+    } catch (err: any) {
+      setPinMsg({ type: "error", text: err.message || "Failed to update PIN status." });
+    } finally {
+      setSavingPin(false);
+    }
+  }
+
+  async function clearPin() {
+    const confirmed = window.confirm(
+      `Remove PIN for ${employee.name}? They will no longer be able to check in using a PIN.`
+    );
+    if (!confirmed) return;
+    setSavingPin(true);
+    setPinMsg(null);
+    try {
+      const res = await fetch(`/api/employees/${employee.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clearPin: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to clear PIN.");
+      setHasPinSet(false);
+      setPinAllowed(false);
+      setPinDraft("");
+      setPinMsg({ type: "success", text: "PIN successfully removed. ✓" });
+      onEmployeeUpdated();
+      setTimeout(() => setPinMsg(null), 3500);
+    } catch (err: any) {
+      setPinMsg({ type: "error", text: err.message || "Failed to clear PIN." });
+    } finally {
+      setSavingPin(false);
     }
   }
 
@@ -1070,6 +1177,143 @@ export default function EmployeeCalendarModal({
                     </button>
                   </div>
                 )}
+              </div>
+
+              {/* 6-Digit PIN Check-In Section */}
+              <div className="pt-4 border-t border-gray-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+                    <span>🔢</span> 6-Digit PIN Check-In
+                  </h3>
+                  <span
+                    className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${
+                      pinAllowed && hasPinSet
+                        ? "bg-indigo-100 text-indigo-800 border border-indigo-200"
+                        : hasPinSet
+                        ? "bg-amber-100 text-amber-800 border border-amber-200"
+                        : "bg-gray-100 text-gray-600 border border-gray-200"
+                    }`}
+                  >
+                    {pinAllowed && hasPinSet
+                      ? "PIN Active"
+                      : hasPinSet
+                      ? "PIN Disabled"
+                      : "No PIN Configured"}
+                  </span>
+                </div>
+
+                <p className="text-xs text-gray-500">
+                  Allow this employee to check in using a 6-digit PIN on their phone instead of biometrics (Face ID/fingerprint). Only employees you explicitly authorize here will have the PIN option. GPS workplace location and shift hours remain strictly enforced.
+                </p>
+
+                {pinMsg && (
+                  <div
+                    className={`p-2.5 rounded-lg text-xs border ${
+                      pinMsg.type === "success"
+                        ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                        : "bg-rose-50 text-rose-800 border-rose-200"
+                    }`}
+                  >
+                    {pinMsg.text}
+                  </div>
+                )}
+
+                {/* If PIN is already set */}
+                {hasPinSet && (
+                  <div className="bg-indigo-50/50 border border-indigo-200/80 rounded-xl p-3 text-xs space-y-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div>
+                        <p className="font-semibold text-indigo-950">PIN Authorization Status</p>
+                        <p className="text-[11px] text-indigo-700">
+                          {pinAllowed
+                            ? "This employee is currently authorized to check in via 6-digit PIN."
+                            : "A PIN is stored, but PIN check-in is temporarily disabled."}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={togglePinAllowed}
+                        disabled={savingPin}
+                        className={`text-xs px-3 py-1.5 rounded-lg font-semibold border transition ${
+                          pinAllowed
+                            ? "bg-amber-600 text-white border-amber-700 hover:bg-amber-700"
+                            : "bg-indigo-600 text-white border-indigo-700 hover:bg-indigo-700"
+                        }`}
+                      >
+                        {pinAllowed ? "Disable PIN Check-In" : "Enable PIN Check-In"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Set / Update PIN */}
+                <div className="space-y-2 bg-gray-50 border border-gray-200 rounded-xl p-3">
+                  <label className="block text-xs font-semibold text-gray-700">
+                    {hasPinSet ? "Update / Change 6-Digit PIN" : "Set 6-Digit PIN for Employee"}
+                  </label>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="relative">
+                      <input
+                        type={showPin ? "text" : "password"}
+                        maxLength={6}
+                        inputMode="numeric"
+                        placeholder="e.g. 123456"
+                        className="input text-xs tracking-widest font-mono w-36 pr-8"
+                        value={pinDraft}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                          setPinDraft(val);
+                        }}
+                      />
+                      {pinDraft && (
+                        <button
+                          type="button"
+                          onClick={() => setShowPin((v) => !v)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                          title={showPin ? "Hide PIN" : "Show PIN"}
+                        >
+                          {showPin ? "🙈" : "👁️"}
+                        </button>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={generateRandomPin}
+                      className="btn-secondary text-xs !py-1.5 flex items-center gap-1"
+                    >
+                      <span>🎲</span> Generate Random PIN
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={savePin}
+                      disabled={savingPin || pinDraft.length !== 6}
+                      className="btn-primary text-xs !py-1.5"
+                    >
+                      {savingPin ? "Saving..." : hasPinSet ? "Update PIN" : "Save & Enable PIN"}
+                    </button>
+
+                    {hasPinSet && (
+                      <button
+                        type="button"
+                        onClick={clearPin}
+                        disabled={savingPin}
+                        className="text-xs text-red-600 hover:text-red-800 hover:underline px-2 py-1 ml-auto"
+                      >
+                        Remove PIN
+                      </button>
+                    )}
+                  </div>
+                  {pinDraft.length > 0 && pinDraft.length < 6 && (
+                    <p className="text-[11px] text-amber-700">Enter {6 - pinDraft.length} more digits.</p>
+                  )}
+                  {showPin && pinDraft.length === 6 && (
+                    <p className="text-[11px] text-indigo-700 font-medium">
+                      Generated PIN: <span className="font-mono font-bold tracking-wider">{pinDraft}</span> — Share this PIN with {employee.name}.
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Status and Danger Zone */}

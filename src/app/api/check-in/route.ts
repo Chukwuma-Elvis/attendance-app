@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyAuthentication } from "@/lib/webauthn";
+import { verifyPin } from "@/lib/pin";
 import {
   verifyGeofence,
   evaluateCheckInTime,
@@ -36,6 +37,7 @@ export async function POST(req: NextRequest) {
     const {
       employeeId,
       response,
+      pin,
       latitude,
       longitude,
       action = "CHECK_IN",
@@ -73,9 +75,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!response) {
+    if (!response && !pin) {
       return NextResponse.json(
-        { error: "Biometric authentication signature is required." },
+        { error: "Biometric authentication signature or 6-digit PIN is required." },
         { status: 400 }
       );
     }
@@ -93,15 +95,36 @@ export async function POST(req: NextRequest) {
     }
 
     const { department } = employee;
-    const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "localhost:3000";
 
-    // 2. Verify Phone Biometric Signature (WebAuthn Passkey)
-    const verification = await verifyAuthentication(employeeId, response, host);
-    if (!verification.verified) {
-      return NextResponse.json(
-        { error: "Biometric identity verification failed. Please try again." },
-        { status: 401 }
-      );
+    // 2. Identity Verification (PIN or WebAuthn Biometric Passkey)
+    let method: "BIOMETRIC_MOBILE" | "PIN_MOBILE" = "BIOMETRIC_MOBILE";
+
+    if (pin) {
+      if (!employee.pinCheckInAllowed || !employee.pinHash) {
+        return NextResponse.json(
+          { error: "PIN check-in is not permitted for this employee. Please use biometric verification." },
+          { status: 403 }
+        );
+      }
+
+      const isPinValid = verifyPin(String(pin).trim(), employee.pinHash);
+      if (!isPinValid) {
+        return NextResponse.json(
+          { error: "Incorrect 6-digit PIN. Please try again." },
+          { status: 401 }
+        );
+      }
+      method = "PIN_MOBILE";
+    } else if (response) {
+      const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "localhost:3000";
+      const verification = await verifyAuthentication(employeeId, response, host);
+      if (!verification.verified) {
+        return NextResponse.json(
+          { error: "Biometric identity verification failed. Please try again." },
+          { status: 401 }
+        );
+      }
+      method = "BIOMETRIC_MOBILE";
     }
 
     // 3. Verify Geofence / Location
@@ -209,7 +232,8 @@ export async function POST(req: NextRequest) {
       }
 
       const status = shiftEvaluation.status || "PRESENT";
-      const note = status === "LATE" ? `Mobile Biometric: ${shiftEvaluation.message}` : null;
+      const methodLabel = method === "PIN_MOBILE" ? "Mobile PIN" : "Mobile Biometric";
+      const note = status === "LATE" ? `${methodLabel}: ${shiftEvaluation.message}` : null;
 
       // Upsert attendance record
       const attendance = await prisma.attendance.upsert({
@@ -227,7 +251,7 @@ export async function POST(req: NextRequest) {
           checkInTime: now,
           checkInLat: Number(latitude),
           checkInLng: Number(longitude),
-          checkInMethod: "BIOMETRIC_MOBILE",
+          checkInMethod: method,
         },
         update: {
           status,
@@ -235,7 +259,7 @@ export async function POST(req: NextRequest) {
           checkInTime: now,
           checkInLat: Number(latitude),
           checkInLng: Number(longitude),
-          checkInMethod: "BIOMETRIC_MOBILE",
+          checkInMethod: method,
         },
       });
 
@@ -287,7 +311,7 @@ export async function POST(req: NextRequest) {
           checkOutTime: now,
           checkOutLat: Number(latitude),
           checkOutLng: Number(longitude),
-          checkOutMethod: "BIOMETRIC_MOBILE",
+          checkOutMethod: method,
         },
       });
 

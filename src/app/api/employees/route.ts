@@ -16,7 +16,12 @@ export async function GET() {
       },
     },
   });
-  return NextResponse.json(employees);
+  return NextResponse.json(
+    employees.map(({ pinHash, ...safeEmployee }) => ({
+      ...safeEmployee,
+      hasPinSet: Boolean(pinHash),
+    }))
+  );
 }
 
 export async function POST(req: NextRequest) {

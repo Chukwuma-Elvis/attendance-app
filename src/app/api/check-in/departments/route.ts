@@ -37,6 +37,8 @@ export async function GET() {
           customCheckInEndTime: true,
           customCheckOutStartTime: true,
           customCheckOutEndTime: true,
+          pinCheckInAllowed: true,
+          pinHash: true,
           _count: {
             select: { biometricCredentials: true },
           },
@@ -77,6 +79,7 @@ export async function GET() {
         hasBiometricsRegistered: e._count.biometricCredentials > 0,
         biometricResetRequested: e.biometricResetRequested,
         biometricResetAllowed: e.biometricResetAllowed,
+        pinCheckInAllowed: Boolean(e.pinCheckInAllowed && e.pinHash),
         customShifts: hasCustom
           ? {
               checkInStart: e.customCheckInStartTime || d.checkInStartTime,

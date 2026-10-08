@@ -27,6 +27,7 @@ type DepartmentInfo = {
     hasBiometricsRegistered: boolean;
     biometricResetRequested: boolean;
     biometricResetAllowed: boolean;
+    pinCheckInAllowed?: boolean;
     customShifts?: {
       checkInStart: string;
       checkInCutoff: string;
@@ -74,6 +75,11 @@ export default function MobileCheckInPage() {
     title: string;
     detail: string;
   } | null>(null);
+
+  // Authentication mode for PIN-permitted employees
+  const [authMode, setAuthMode] = useState<"BIOMETRIC" | "PIN">("BIOMETRIC");
+  const [pinInput, setPinInput] = useState<string>("");
+  const [showPinInput, setShowPinInput] = useState<boolean>(false);
 
   // Live clock
   const [currentTime, setCurrentTime] = useState("");
@@ -188,6 +194,19 @@ export default function MobileCheckInPage() {
   const activeDept = departments.find((d) => d.id === selectedDeptId);
   const activeEmp = activeDept?.employees.find((e) => e.id === selectedEmpId);
 
+  // Automatically reset PIN and select appropriate auth mode when employee changes
+  useEffect(() => {
+    setPinInput("");
+    setShowPinInput(false);
+    if (activeEmp?.pinCheckInAllowed) {
+      if (!activeEmp.hasBiometricsRegistered) {
+        setAuthMode("PIN");
+      }
+    } else {
+      setAuthMode("BIOMETRIC");
+    }
+  }, [selectedEmpId, activeEmp?.pinCheckInAllowed, activeEmp?.hasBiometricsRegistered]);
+
   // Auto-poll when employee is waiting for admin approval
   useEffect(() => {
     if (!activeEmp?.biometricResetRequested) return;
@@ -258,6 +277,8 @@ export default function MobileCheckInPage() {
 
   const canCheckIn = isLocationInside && isCheckInTimeActive && !processing;
   const canCheckOut = isLocationInside && isCheckOutTimeActive && !processing;
+  const canCheckInWithPin = canCheckIn && pinInput.length === 6;
+  const canCheckOutWithPin = canCheckOut && pinInput.length === 6;
 
   // 1. Biometric Registration (Passkey enrollment)
   async function handleRegisterBiometrics() {
@@ -470,6 +491,118 @@ export default function MobileCheckInPage() {
     }
   }
 
+  // 3. PIN Check-In or Check-Out (For employees explicitly authorized)
+  async function handlePinCheckAction(action: "CHECK_IN" | "CHECK_OUT") {
+    if (!activeEmp) return;
+    setResultMessage(null);
+
+    const cleanPin = pinInput.trim();
+    if (!/^\d{6}$/.test(cleanPin)) {
+      setResultMessage({
+        type: "error",
+        title: "6-Digit PIN Required",
+        detail: "Please enter your full 6-digit PIN before proceeding.",
+      });
+      return;
+    }
+
+    // Step A: Strictly confirm and acquire location
+    let coords = location;
+    if (!coords) {
+      setProcessing(true);
+      try {
+        coords = await requestLocation();
+      } catch (err: any) {
+        setProcessing(false);
+        setResultMessage({
+          type: "error",
+          title: "Location Access Required",
+          detail:
+            "Check-in was blocked because location access is required. Please grant location permissions in your browser.",
+        });
+        return;
+      }
+    }
+
+    if (!coords) {
+      setResultMessage({
+        type: "error",
+        title: "Location Access Required",
+        detail: "Check-in was blocked: Physical location could not be confirmed.",
+      });
+      return;
+    }
+
+    // Step B: Verify geofence before proceeding
+    if (activeDept && activeDept.venueLatitude && activeDept.venueLongitude) {
+      const dist = calculateDistanceMeters(
+        coords.lat,
+        coords.lng,
+        activeDept.venueLatitude,
+        activeDept.venueLongitude
+      );
+      if (dist > activeDept.venueRadiusMeters) {
+        setResultMessage({
+          type: "error",
+          title: "Outside Workplace Venue",
+          detail: `Check-in blocked: You are ${dist}m away from ${
+            activeDept.venueName || "the venue"
+          }. Maximum allowed radius is ${activeDept.venueRadiusMeters}m.`,
+        });
+        return;
+      }
+    }
+
+    setProcessing(true);
+    try {
+      const dNow = new Date();
+      const cHours = String(dNow.getHours()).padStart(2, "0");
+      const cMins = String(dNow.getMinutes()).padStart(2, "0");
+      const clientTime = `${cHours}:${cMins}`;
+      const clientDate = `${dNow.getFullYear()}-${String(dNow.getMonth() + 1).padStart(2, "0")}-${String(dNow.getDate()).padStart(2, "0")}`;
+
+      const checkRes = await fetch("/api/check-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: activeEmp.id,
+          pin: cleanPin,
+          latitude: coords.lat,
+          longitude: coords.lng,
+          action,
+          clientTime,
+          clientDate,
+        }),
+      });
+
+      const checkData = await checkRes.json();
+      if (!checkRes.ok) {
+        throw new Error(checkData.error || `${action === "CHECK_IN" ? "Check-in" : "Check-out"} failed.`);
+      }
+
+      setResultMessage({
+        type: checkData.status === "LATE" ? "warning" : "success",
+        title:
+          action === "CHECK_IN"
+            ? checkData.status === "LATE"
+              ? "Checked In with PIN (LATE) ⚠️"
+              : "Checked In with PIN (On Time) ✓"
+            : "Checked Out Successfully with PIN! 👋",
+        detail: checkData.message,
+      });
+      setPinInput("");
+    } catch (err: any) {
+      console.error(err);
+      setResultMessage({
+        type: "error",
+        title: `${action === "CHECK_IN" ? "Check-In" : "Check-Out"} Failed`,
+        detail: err.message || "An error occurred during verification.",
+      });
+    } finally {
+      setProcessing(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-between p-3 sm:p-6">
       <div className="max-w-md w-full mx-auto space-y-4 pt-2 pb-8">
@@ -552,10 +685,21 @@ export default function MobileCheckInPage() {
             <option value="">-- Choose your name --</option>
             {activeDept?.employees.map((e) => (
               <option key={e.id} value={e.id}>
-                {e.name} ({e.role}){e.customShifts ? " ⏰" : ""}
+                {e.name} ({e.role}){e.customShifts ? " ⏰" : ""}{e.pinCheckInAllowed ? " 🔢" : ""}
               </option>
             ))}
           </select>
+
+          {activeEmp?.pinCheckInAllowed && (
+            <div className="bg-indigo-50/70 border border-indigo-200 rounded-xl p-2.5 text-xs text-indigo-950 flex items-center justify-between">
+              <span className="font-semibold flex items-center gap-1.5 text-indigo-900">
+                <span>🔢</span> 6-Digit PIN Check-In Authorized
+              </span>
+              <span className="text-[10px] bg-indigo-100 text-indigo-800 font-semibold px-2 py-0.5 rounded-full border border-indigo-200">
+                No Biometrics Required
+              </span>
+            </div>
+          )}
 
           {activeEmp?.customShifts && (
             <div className="bg-purple-50/70 border border-purple-200 rounded-xl p-3 text-xs text-purple-950 space-y-1">
@@ -703,33 +847,48 @@ export default function MobileCheckInPage() {
         )}
 
         {/* Step 4: Biometric Action Controls */}
+        {/* Step 4: Verification & Actions */}
         {activeEmp && (
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200 space-y-4">
-            <span className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-              4. Biometric Identification
-            </span>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                4. Identity Verification
+              </span>
+              {activeEmp.pinCheckInAllowed && (
+                <div className="flex bg-gray-100 p-0.5 rounded-lg border border-gray-200 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode("BIOMETRIC");
+                      setResultMessage(null);
+                    }}
+                    className={`px-2.5 py-1 rounded-md font-semibold transition ${
+                      authMode === "BIOMETRIC"
+                        ? "bg-white text-gray-900 shadow-2xs"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    🔐 Biometric
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode("PIN");
+                      setResultMessage(null);
+                    }}
+                    className={`px-2.5 py-1 rounded-md font-semibold transition ${
+                      authMode === "PIN"
+                        ? "bg-white text-indigo-700 shadow-2xs"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    🔢 6-Digit PIN
+                  </button>
+                </div>
+              )}
+            </div>
 
-            {/* If passkey is NOT registered yet */}
-            {!activeEmp.hasBiometricsRegistered ? (
-              <div className="space-y-2.5 bg-blue-50/60 p-3.5 rounded-xl border border-blue-200 text-center">
-                <p className="text-xs font-semibold text-blue-900">
-                  First Time on this Device?
-                </p>
-                <p className="text-[11px] text-blue-700">
-                  Pair your phone&apos;s Face ID, Touch ID, or Fingerprint to confirm your identity when checking in.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleRegisterBiometrics}
-                  disabled={processing}
-                  className="btn-primary w-full text-xs !py-2.5 flex items-center justify-center gap-2"
-                >
-                  <span>🔐</span>
-                  <span>{processing ? "Registering..." : "Register Phone Biometric"}</span>
-                </button>
-              </div>
-            ) : (
-              /* Already registered: Show Check-In & Check-Out buttons */
+            {authMode === "PIN" ? (
               <div className="space-y-3">
                 {/* Contextual status banner */}
                 {!hasConfirmedLocation || isInsideGeofence === false ? (
@@ -764,7 +923,7 @@ export default function MobileCheckInPage() {
                     <div className="space-y-0.5">
                       <p className="font-bold text-indigo-900">Check-Out Window is Active</p>
                       <p className="text-[11px] text-indigo-800">
-                        Departure check-out is currently open until {effectiveShifts?.checkOutEnd}. Tap &ldquo;Check Out&rdquo; below to confirm your departure.
+                        Departure check-out is currently open until {effectiveShifts?.checkOutEnd}. Enter your 6-digit PIN below to confirm your departure.
                       </p>
                     </div>
                   </div>
@@ -774,7 +933,7 @@ export default function MobileCheckInPage() {
                     <div className="space-y-0.5">
                       <p className="font-bold text-emerald-900">Check-In Window is Active</p>
                       <p className="text-[11px] text-emerald-800">
-                        Arrival check-in is currently open until {effectiveShifts?.checkInEnd}. Tap &ldquo;Check In&rdquo; below to record your attendance.
+                        Arrival check-in is currently open until {effectiveShifts?.checkInEnd}. Enter your 6-digit PIN below to record your attendance.
                       </p>
                     </div>
                   </div>
@@ -790,15 +949,66 @@ export default function MobileCheckInPage() {
                   </div>
                 ) : null}
 
+                {/* 6-Digit PIN keypad / input container */}
+                <div className="bg-indigo-50/60 border border-indigo-200 rounded-xl p-4 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                      <span>🔢</span> Enter 6-Digit PIN
+                    </label>
+                    {pinInput.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowPinInput(!showPinInput)}
+                        className="text-[11px] text-indigo-700 hover:underline font-medium"
+                      >
+                        {showPinInput ? "Hide PIN" : "Show PIN"}
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showPinInput ? "text" : "password"}
+                      maxLength={6}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      placeholder="••••••"
+                      value={pinInput}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                        setPinInput(val);
+                      }}
+                      className="input w-full text-center tracking-[0.4em] text-xl font-mono font-bold bg-white border-indigo-300 focus:border-indigo-500 shadow-2xs"
+                      autoComplete="one-time-code"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-indigo-800 px-1">
+                    <span>
+                      {pinInput.length === 6
+                        ? "✓ Ready to check in or out"
+                        : `Enter your 6 digits (${pinInput.length}/6)`}
+                    </span>
+                    {pinInput.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setPinInput("")}
+                        className="text-gray-400 hover:text-red-600 transition"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* PIN Action buttons */}
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    onClick={() => handleCheckAction("CHECK_IN")}
-                    disabled={!canCheckIn}
+                    onClick={() => handlePinCheckAction("CHECK_IN")}
+                    disabled={!canCheckInWithPin}
                     className="btn-primary !bg-emerald-600 hover:!bg-emerald-700 !py-3 text-xs font-bold flex flex-col items-center justify-center gap-1 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
                   >
                     <span className="text-lg">☀️</span>
-                    <span>{processing ? "Verifying..." : "Check In"}</span>
+                    <span>{processing ? "Verifying..." : "Check In with PIN"}</span>
                     <span className="text-[10px] font-normal opacity-90">
                       {!isCheckInTimeActive
                         ? checkInTimeNotice
@@ -806,18 +1016,20 @@ export default function MobileCheckInPage() {
                         ? "Confirm Location Above"
                         : isInsideGeofence === false
                         ? `${distanceToVenue}m away (Out of Range)`
+                        : pinInput.length !== 6
+                        ? "Enter 6-Digit PIN"
                         : "Arrival"}
                     </span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => handleCheckAction("CHECK_OUT")}
-                    disabled={!canCheckOut}
-                    className="btn-secondary !border-brand text-brand hover:bg-brand/5 !py-3 text-xs font-bold flex flex-col items-center justify-center gap-1 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+                    onClick={() => handlePinCheckAction("CHECK_OUT")}
+                    disabled={!canCheckOutWithPin}
+                    className="btn-secondary !border-indigo-600 text-indigo-700 hover:bg-indigo-50 !py-3 text-xs font-bold flex flex-col items-center justify-center gap-1 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
                   >
                     <span className="text-lg">🌙</span>
-                    <span>{processing ? "Verifying..." : "Check Out"}</span>
+                    <span>{processing ? "Verifying..." : "Check Out with PIN"}</span>
                     <span className="text-[10px] font-normal opacity-90">
                       {!isCheckOutTimeActive
                         ? checkOutTimeNotice
@@ -825,76 +1037,202 @@ export default function MobileCheckInPage() {
                         ? "Confirm Location Above"
                         : isInsideGeofence === false
                         ? `${distanceToVenue}m away (Out of Range)`
+                        : pinInput.length !== 6
+                        ? "Enter 6-Digit PIN"
                         : "Departure"}
                     </span>
                   </button>
                 </div>
               </div>
-            )}
-
-            {/* Device Switch / Re-Registration Section (Strictly Protected by Admin Permission) */}
-            {activeEmp.hasBiometricsRegistered && (
-              <div className="pt-2 border-t border-gray-100">
-                {activeEmp.biometricResetAllowed ? (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs space-y-2">
-                    <div className="flex items-center gap-1.5 font-bold text-emerald-900">
-                      <span>🔓</span>
-                      <span>Admin Permission Granted</span>
-                    </div>
-                    <p className="text-[11px] text-emerald-700">
-                      Your administrator has authorized a new biometric registration. You may now pair your new phone or device.
+            ) : (
+              /* Biometric Identification Flow */
+              <>
+                {!activeEmp.hasBiometricsRegistered ? (
+                  <div className="space-y-2.5 bg-blue-50/60 p-3.5 rounded-xl border border-blue-200 text-center">
+                    <p className="text-xs font-semibold text-blue-900">
+                      First Time on this Device?
+                    </p>
+                    <p className="text-[11px] text-blue-700">
+                      Pair your phone&apos;s Face ID, Touch ID, or Fingerprint to confirm your identity when checking in.
                     </p>
                     <button
                       type="button"
                       onClick={handleRegisterBiometrics}
                       disabled={processing}
-                      className="btn-primary w-full !bg-emerald-600 hover:!bg-emerald-700 text-xs !py-2 flex items-center justify-center gap-1.5 shadow-sm"
+                      className="btn-primary w-full text-xs !py-2.5 flex items-center justify-center gap-2"
                     >
                       <span>🔐</span>
-                      <span>Pair New Device Biometrics</span>
-                    </button>
-                  </div>
-                ) : activeEmp.biometricResetRequested ? (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs space-y-2 text-center">
-                    <div className="flex items-center justify-center gap-1.5 font-bold text-amber-900">
-                      <span>⏳</span>
-                      <span>Reset Request Pending Admin Approval</span>
-                    </div>
-                    <p className="text-[11px] text-amber-800">
-                      Your request to change devices was submitted. Please ask your administrator to approve it in the admin dashboard.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => loadDepartments(false)}
-                      className="text-[11px] text-amber-800 hover:text-amber-950 font-medium underline flex items-center justify-center gap-1 mx-auto pt-1"
-                    >
-                      <span>🔄</span>
-                      <span>Check Status Now</span>
+                      <span>{processing ? "Registering..." : "Register Phone Biometric"}</span>
                     </button>
                   </div>
                 ) : (
-                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-gray-700 flex items-center gap-1">
-                        <span>🔒</span> Device Biometrics Locked
-                      </span>
-                      <span className="text-[10px] text-gray-400 font-medium">Security Protected</span>
+                  <div className="space-y-3">
+                    {/* Contextual status banner */}
+                    {!hasConfirmedLocation || isInsideGeofence === false ? (
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 flex items-start gap-2">
+                        <span className="text-base shrink-0">
+                          {permissionDenied ? "🚫" : locating ? "📡" : !hasConfirmedLocation ? "📍" : "⚠️"}
+                        </span>
+                        <div className="space-y-0.5">
+                          <p className="font-bold">
+                            {permissionDenied
+                              ? "Location Access Blocked"
+                              : locating
+                              ? "Acquiring GPS Location..."
+                              : !hasConfirmedLocation
+                              ? "Step 3: Location Confirmation Required"
+                              : "Outside Workplace Venue Radius"}
+                          </p>
+                          <p className="text-[11px] text-amber-800">
+                            {permissionDenied
+                              ? "Location access is denied. Check-in cannot proceed without GPS confirmation."
+                              : locating
+                              ? "Please wait while your GPS coordinates are being acquired."
+                              : !hasConfirmedLocation
+                              ? 'Please tap "Confirm Location" in Step 3 above so we can verify your presence at the venue.'
+                              : `You are ${distanceToVenue}m away from ${activeDept?.venueName || "the workplace"}. Check-in is allowed within ${activeDept?.venueRadiusMeters}m.`}
+                          </p>
+                        </div>
+                      </div>
+                    ) : isCheckOutTimeActive && !isCheckInTimeActive ? (
+                      <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-xs text-indigo-950 flex items-start gap-2">
+                        <span className="text-base shrink-0">🌙</span>
+                        <div className="space-y-0.5">
+                          <p className="font-bold text-indigo-900">Check-Out Window is Active</p>
+                          <p className="text-[11px] text-indigo-800">
+                            Departure check-out is currently open until {effectiveShifts?.checkOutEnd}. Tap &ldquo;Check Out&rdquo; below to confirm your departure.
+                          </p>
+                        </div>
+                      </div>
+                    ) : isCheckInTimeActive && !isCheckOutTimeActive ? (
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-950 flex items-start gap-2">
+                        <span className="text-base shrink-0">☀️</span>
+                        <div className="space-y-0.5">
+                          <p className="font-bold text-emerald-900">Check-In Window is Active</p>
+                          <p className="text-[11px] text-emerald-800">
+                            Arrival check-in is currently open until {effectiveShifts?.checkInEnd}. Tap &ldquo;Check In&rdquo; below to record your attendance.
+                          </p>
+                        </div>
+                      </div>
+                    ) : !isCheckInTimeActive && !isCheckOutTimeActive ? (
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 flex items-start gap-2">
+                        <span className="text-base shrink-0">⏰</span>
+                        <div className="space-y-0.5">
+                          <p className="font-bold">Outside Shift Hours</p>
+                          <p className="text-[11px] text-amber-800">
+                            Check-in: {effectiveShifts?.checkInStart} – {effectiveShifts?.checkInEnd} | Check-out: {effectiveShifts?.checkOutStart} – {effectiveShifts?.checkOutEnd}. Current time: {nowHM}.
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleCheckAction("CHECK_IN")}
+                        disabled={!canCheckIn}
+                        className="btn-primary !bg-emerald-600 hover:!bg-emerald-700 !py-3 text-xs font-bold flex flex-col items-center justify-center gap-1 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+                      >
+                        <span className="text-lg">☀️</span>
+                        <span>{processing ? "Verifying..." : "Check In"}</span>
+                        <span className="text-[10px] font-normal opacity-90">
+                          {!isCheckInTimeActive
+                            ? checkInTimeNotice
+                            : !hasConfirmedLocation
+                            ? "Confirm Location Above"
+                            : isInsideGeofence === false
+                            ? `${distanceToVenue}m away (Out of Range)`
+                            : "Arrival"}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCheckAction("CHECK_OUT")}
+                        disabled={!canCheckOut}
+                        className="btn-secondary !border-brand text-brand hover:bg-brand/5 !py-3 text-xs font-bold flex flex-col items-center justify-center gap-1 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+                      >
+                        <span className="text-lg">🌙</span>
+                        <span>{processing ? "Verifying..." : "Check Out"}</span>
+                        <span className="text-[10px] font-normal opacity-90">
+                          {!isCheckOutTimeActive
+                            ? checkOutTimeNotice
+                            : !hasConfirmedLocation
+                            ? "Confirm Location Above"
+                            : isInsideGeofence === false
+                            ? `${distanceToVenue}m away (Out of Range)`
+                            : "Departure"}
+                        </span>
+                      </button>
                     </div>
-                    <p className="text-[11px] text-gray-500">
-                      Got a new phone or changed device? Re-registering requires administrator authorization.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleRequestBiometricReset}
-                      disabled={processing}
-                      className="btn-secondary w-full text-xs !py-1.5 font-medium flex items-center justify-center gap-1.5 text-gray-700 hover:text-brand"
-                    >
-                      <span>📨</span>
-                      <span>Request Admin Permission to Change Device</span>
-                    </button>
                   </div>
                 )}
-              </div>
+
+                {/* Device Switch / Re-Registration Section (Strictly Protected by Admin Permission) */}
+                {activeEmp.hasBiometricsRegistered && (
+                  <div className="pt-2 border-t border-gray-100">
+                    {activeEmp.biometricResetAllowed ? (
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs space-y-2">
+                        <div className="flex items-center gap-1.5 font-bold text-emerald-900">
+                          <span>🔓</span>
+                          <span>Admin Permission Granted</span>
+                        </div>
+                        <p className="text-[11px] text-emerald-700">
+                          Your administrator has authorized a new biometric registration. You may now pair your new phone or device.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleRegisterBiometrics}
+                          disabled={processing}
+                          className="btn-primary w-full !bg-emerald-600 hover:!bg-emerald-700 text-xs !py-2 flex items-center justify-center gap-1.5 shadow-sm"
+                        >
+                          <span>🔐</span>
+                          <span>Pair New Device Biometrics</span>
+                        </button>
+                      </div>
+                    ) : activeEmp.biometricResetRequested ? (
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs space-y-2 text-center">
+                        <div className="flex items-center justify-center gap-1.5 font-bold text-amber-900">
+                          <span>⏳</span>
+                          <span>Reset Request Pending Admin Approval</span>
+                        </div>
+                        <p className="text-[11px] text-amber-800">
+                          Your request to change devices was submitted. Please ask your administrator to approve it in the admin dashboard.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => loadDepartments(false)}
+                          className="text-[11px] text-amber-800 hover:text-amber-950 font-medium underline flex items-center justify-center gap-1 mx-auto pt-1"
+                        >
+                          <span>🔄</span>
+                          <span>Check Status Now</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-gray-700 flex items-center gap-1">
+                            <span>🔒</span> Device Biometrics Locked
+                          </span>
+                          <span className="text-[10px] text-gray-400 font-medium">Security Protected</span>
+                        </div>
+                        <p className="text-[11px] text-gray-500">
+                          Got a new phone or changed device? Re-registering requires administrator authorization.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleRequestBiometricReset}
+                          disabled={processing}
+                          className="btn-secondary w-full text-xs !py-1.5 font-medium flex items-center justify-center gap-1.5 text-gray-700 hover:text-brand"
+                        >
+                          <span>📨</span>
+                          <span>Request Admin Permission to Change Device</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

@@ -95,6 +95,9 @@ model Employee {
   customCheckInEndTime    String?
   customCheckOutStartTime String?
   customCheckOutEndTime   String?
+  // PIN check-in for devices without biometrics (strictly admin controlled)
+  pinCheckInAllowed       Boolean               @default(false)
+  pinHash                 String?
   createdAt            DateTime              @default(now())
   attendance           Attendance[]
   infractions          Infraction[]

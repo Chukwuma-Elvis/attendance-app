@@ -16,6 +16,8 @@ type Employee = {
   customCheckInEndTime?: string | null;
   customCheckOutStartTime?: string | null;
   customCheckOutEndTime?: string | null;
+  pinCheckInAllowed?: boolean;
+  hasPinSet?: boolean;
   _count?: {
     biometricCredentials: number;
   };
@@ -254,6 +256,11 @@ export default function EmployeesPage() {
               {(emp.customCheckInStartTime || emp.customCheckInCutoffTime) && (
                 <span className="text-[11px] bg-purple-50 text-purple-700 font-medium px-2 py-0.5 rounded-full border border-purple-200">
                   ⏰ {emp.customCheckInStartTime || "Custom"}
+                </span>
+              )}
+              {emp.pinCheckInAllowed && emp.hasPinSet && (
+                <span className="text-[11px] bg-indigo-50 text-indigo-700 font-semibold px-2 py-0.5 rounded-full border border-indigo-200">
+                  🔢 PIN Allowed
                 </span>
               )}
               <span
