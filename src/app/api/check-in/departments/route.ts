@@ -32,6 +32,11 @@ export async function GET() {
           workingDays: true,
           biometricResetRequested: true,
           biometricResetAllowed: true,
+          customCheckInStartTime: true,
+          customCheckInCutoffTime: true,
+          customCheckInEndTime: true,
+          customCheckOutStartTime: true,
+          customCheckOutEndTime: true,
           _count: {
             select: { biometricCredentials: true },
           },
@@ -55,15 +60,34 @@ export async function GET() {
       checkOutStart: d.checkOutStartTime,
       checkOutEnd: d.checkOutEndTime,
     },
-    employees: d.employees.map((e) => ({
-      id: e.id,
-      name: e.name,
-      role: e.role,
-      workingDays: e.workingDays,
-      hasBiometricsRegistered: e._count.biometricCredentials > 0,
-      biometricResetRequested: e.biometricResetRequested,
-      biometricResetAllowed: e.biometricResetAllowed,
-    })),
+    employees: d.employees.map((e) => {
+      const hasCustom = Boolean(
+        e.customCheckInStartTime ||
+          e.customCheckInCutoffTime ||
+          e.customCheckInEndTime ||
+          e.customCheckOutStartTime ||
+          e.customCheckOutEndTime
+      );
+
+      return {
+        id: e.id,
+        name: e.name,
+        role: e.role,
+        workingDays: e.workingDays,
+        hasBiometricsRegistered: e._count.biometricCredentials > 0,
+        biometricResetRequested: e.biometricResetRequested,
+        biometricResetAllowed: e.biometricResetAllowed,
+        customShifts: hasCustom
+          ? {
+              checkInStart: e.customCheckInStartTime || d.checkInStartTime,
+              checkInCutoff: e.customCheckInCutoffTime || d.checkInCutoffTime,
+              checkInEnd: e.customCheckInEndTime || d.checkInEndTime,
+              checkOutStart: e.customCheckOutStartTime || d.checkOutStartTime,
+              checkOutEnd: e.customCheckOutEndTime || d.checkOutEndTime,
+            }
+          : null,
+      };
+    }),
   }));
 
   return NextResponse.json(formatted, {

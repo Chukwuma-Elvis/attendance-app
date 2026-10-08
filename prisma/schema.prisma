@@ -89,6 +89,12 @@ model Employee {
   workingDays          Int[]                 @default([0, 1, 2, 3, 4, 5, 6])
   biometricResetRequested Boolean            @default(false)
   biometricResetAllowed   Boolean            @default(false)
+  // Custom shift timings (optional overrides for this specific employee)
+  customCheckInStartTime  String?
+  customCheckInCutoffTime String?
+  customCheckInEndTime    String?
+  customCheckOutStartTime String?
+  customCheckOutEndTime   String?
   createdAt            DateTime              @default(now())
   attendance           Attendance[]
   infractions          Infraction[]

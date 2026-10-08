@@ -10,6 +10,18 @@ type Employee = {
   workingDays: number[];
   biometricResetRequested?: boolean;
   biometricResetAllowed?: boolean;
+  customCheckInStartTime?: string | null;
+  customCheckInCutoffTime?: string | null;
+  customCheckInEndTime?: string | null;
+  customCheckOutStartTime?: string | null;
+  customCheckOutEndTime?: string | null;
+  department?: {
+    checkInStartTime?: string;
+    checkInCutoffTime?: string;
+    checkInEndTime?: string;
+    checkOutStartTime?: string;
+    checkOutEndTime?: string;
+  };
   _count?: {
     biometricCredentials: number;
   };
@@ -104,6 +116,24 @@ export default function EmployeeCalendarModal({
   const [savingDetails, setSavingDetails] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Custom shift timings state
+  const [deptDefaults, setDeptDefaults] = useState<{
+    checkInStartTime?: string;
+    checkInCutoffTime?: string;
+    checkInEndTime?: string;
+    checkOutStartTime?: string;
+    checkOutEndTime?: string;
+  } | null>(employee.department || null);
+
+  const [customInStart, setCustomInStart] = useState(employee.customCheckInStartTime ?? "");
+  const [customInCutoff, setCustomInCutoff] = useState(employee.customCheckInCutoffTime ?? "");
+  const [customInEnd, setCustomInEnd] = useState(employee.customCheckInEndTime ?? "");
+  const [customOutStart, setCustomOutStart] = useState(employee.customCheckOutStartTime ?? "");
+  const [customOutEnd, setCustomOutEnd] = useState(employee.customCheckOutEndTime ?? "");
+
+  const [savingShifts, setSavingShifts] = useState(false);
+  const [shiftMsg, setShiftMsg] = useState<string | null>(null);
+
   // Fetch monthly attendance and infractions for the employee
   useEffect(() => {
     let cancelled = false;
@@ -117,6 +147,26 @@ export default function EmployeeCalendarModal({
           setAttendance(data.attendance ?? []);
           setInfractions(data.infractions ?? []);
           setPenaltyRules(data.penaltyRules ?? []);
+          if (data.employee) {
+            if (data.employee.department) {
+              setDeptDefaults(data.employee.department);
+            }
+            if (data.employee.customCheckInStartTime !== undefined) {
+              setCustomInStart(data.employee.customCheckInStartTime ?? "");
+            }
+            if (data.employee.customCheckInCutoffTime !== undefined) {
+              setCustomInCutoff(data.employee.customCheckInCutoffTime ?? "");
+            }
+            if (data.employee.customCheckInEndTime !== undefined) {
+              setCustomInEnd(data.employee.customCheckInEndTime ?? "");
+            }
+            if (data.employee.customCheckOutStartTime !== undefined) {
+              setCustomOutStart(data.employee.customCheckOutStartTime ?? "");
+            }
+            if (data.employee.customCheckOutEndTime !== undefined) {
+              setCustomOutEnd(data.employee.customCheckOutEndTime ?? "");
+            }
+          }
         }
         setLoading(false);
       })
@@ -248,6 +298,63 @@ export default function EmployeeCalendarModal({
       body: JSON.stringify({ workingDays }),
     });
     onEmployeeUpdated();
+  }
+
+  async function saveCustomShifts() {
+    setSavingShifts(true);
+    setShiftMsg(null);
+    try {
+      const res = await fetch(`/api/employees/${employee.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customCheckInStartTime: customInStart.trim() || null,
+          customCheckInCutoffTime: customInCutoff.trim() || null,
+          customCheckInEndTime: customInEnd.trim() || null,
+          customCheckOutStartTime: customOutStart.trim() || null,
+          customCheckOutEndTime: customOutEnd.trim() || null,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to save shift timings.");
+      setShiftMsg("Personalized shift timings saved successfully! ✓");
+      onEmployeeUpdated();
+      setTimeout(() => setShiftMsg(null), 3500);
+    } catch (err: any) {
+      alert(err.message || "Failed to save shift timings.");
+    } finally {
+      setSavingShifts(false);
+    }
+  }
+
+  async function resetToDefaults() {
+    setCustomInStart("");
+    setCustomInCutoff("");
+    setCustomInEnd("");
+    setCustomOutStart("");
+    setCustomOutEnd("");
+    setSavingShifts(true);
+    setShiftMsg(null);
+    try {
+      const res = await fetch(`/api/employees/${employee.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customCheckInStartTime: null,
+          customCheckInCutoffTime: null,
+          customCheckInEndTime: null,
+          customCheckOutStartTime: null,
+          customCheckOutEndTime: null,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to reset shift timings.");
+      setShiftMsg("Reset to department general shift timings! ✓");
+      onEmployeeUpdated();
+      setTimeout(() => setShiftMsg(null), 3500);
+    } catch (err: any) {
+      alert(err.message || "Failed to reset shift timings.");
+    } finally {
+      setSavingShifts(false);
+    }
   }
 
   const [biometricActionLoading, setBiometricActionLoading] = useState(false);
@@ -744,6 +851,128 @@ export default function EmployeeCalendarModal({
                       </button>
                     );
                   })}
+                </div>
+              </div>
+
+              {/* Custom Shift Timings (Individual Employee Overrides) */}
+              <div className="space-y-3 pt-4 border-t border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+                    <span>⏰</span> Custom Shift Timings (Optional)
+                  </h3>
+                  {Boolean(customInStart || customInCutoff || customInEnd || customOutStart || customOutEnd) && (
+                    <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-purple-100 text-purple-800 border border-purple-200">
+                      Custom Hours Active
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-gray-500">
+                  Override the department&apos;s standard shift hours for this employee. Leave blank to inherit the general shift timings.
+                </p>
+
+                {shiftMsg && (
+                  <div className="p-2.5 rounded-lg bg-emerald-50 text-emerald-800 text-xs border border-emerald-200">
+                    {shiftMsg}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Check-In Opens
+                    </label>
+                    <input
+                      type="time"
+                      className="input w-full text-xs"
+                      value={customInStart}
+                      onChange={(e) => setCustomInStart(e.target.value)}
+                    />
+                    <span className="text-[10px] text-gray-400">
+                      General: {deptDefaults?.checkInStartTime || "07:00"}
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-amber-800 mb-1">
+                      On-Time Cutoff
+                    </label>
+                    <input
+                      type="time"
+                      className="input w-full text-xs border-amber-300 bg-amber-50/20 font-bold"
+                      value={customInCutoff}
+                      onChange={(e) => setCustomInCutoff(e.target.value)}
+                    />
+                    <span className="text-[10px] text-amber-700">
+                      General: {deptDefaults?.checkInCutoffTime || "09:15"}
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Check-In Closes
+                    </label>
+                    <input
+                      type="time"
+                      className="input w-full text-xs"
+                      value={customInEnd}
+                      onChange={(e) => setCustomInEnd(e.target.value)}
+                    />
+                    <span className="text-[10px] text-gray-400">
+                      General: {deptDefaults?.checkInEndTime || "13:00"}
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Check-Out Opens
+                    </label>
+                    <input
+                      type="time"
+                      className="input w-full text-xs"
+                      value={customOutStart}
+                      onChange={(e) => setCustomOutStart(e.target.value)}
+                    />
+                    <span className="text-[10px] text-gray-400">
+                      General: {deptDefaults?.checkOutStartTime || "16:30"}
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Check-Out Closes
+                    </label>
+                    <input
+                      type="time"
+                      className="input w-full text-xs"
+                      value={customOutEnd}
+                      onChange={(e) => setCustomOutEnd(e.target.value)}
+                    />
+                    <span className="text-[10px] text-gray-400">
+                      General: {deptDefaults?.checkOutEndTime || "21:00"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-1 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={saveCustomShifts}
+                    disabled={savingShifts}
+                    className="btn-primary text-xs !py-1.5"
+                  >
+                    {savingShifts ? "Saving..." : "Save Custom Shift Hours"}
+                  </button>
+                  {Boolean(customInStart || customInCutoff || customInEnd || customOutStart || customOutEnd) && (
+                    <button
+                      type="button"
+                      onClick={resetToDefaults}
+                      disabled={savingShifts}
+                      className="btn-secondary text-xs !py-1.5 text-gray-600 hover:text-red-600"
+                    >
+                      Reset to General Defaults
+                    </button>
+                  )}
                 </div>
               </div>
 

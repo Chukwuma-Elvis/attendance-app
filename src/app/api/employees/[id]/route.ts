@@ -11,6 +11,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const employee = await prisma.employee.findFirst({
     where: { id, departmentId: session.departmentId },
+    include: {
+      department: {
+        select: {
+          checkInStartTime: true,
+          checkInCutoffTime: true,
+          checkInEndTime: true,
+          checkOutStartTime: true,
+          checkOutEndTime: true,
+        },
+      },
+    },
   });
 
   if (!employee) {
@@ -83,25 +94,66 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const body = await req.json();
-  const { name, role, active, workingDays } = body;
+  const {
+    name,
+    role,
+    active,
+    workingDays,
+    customCheckInStartTime,
+    customCheckInCutoffTime,
+    customCheckInEndTime,
+    customCheckOutStartTime,
+    customCheckOutEndTime,
+  } = body;
+
+  const dataToUpdate: Record<string, any> = {};
+  if (name !== undefined) dataToUpdate.name = String(name).trim();
+  if (role !== undefined) dataToUpdate.role = String(role).trim();
+  if (active !== undefined) dataToUpdate.active = Boolean(active);
+  if (workingDays !== undefined) dataToUpdate.workingDays = workingDays;
+
+  // Custom shift timings: allow string or null (empty string -> null to reset to department default)
+  if (customCheckInStartTime !== undefined) {
+    dataToUpdate.customCheckInStartTime = customCheckInStartTime ? String(customCheckInStartTime).trim() : null;
+  }
+  if (customCheckInCutoffTime !== undefined) {
+    dataToUpdate.customCheckInCutoffTime = customCheckInCutoffTime ? String(customCheckInCutoffTime).trim() : null;
+  }
+  if (customCheckInEndTime !== undefined) {
+    dataToUpdate.customCheckInEndTime = customCheckInEndTime ? String(customCheckInEndTime).trim() : null;
+  }
+  if (customCheckOutStartTime !== undefined) {
+    dataToUpdate.customCheckOutStartTime = customCheckOutStartTime ? String(customCheckOutStartTime).trim() : null;
+  }
+  if (customCheckOutEndTime !== undefined) {
+    dataToUpdate.customCheckOutEndTime = customCheckOutEndTime ? String(customCheckOutEndTime).trim() : null;
+  }
 
   // updateMany scoped to the caller's department so one department can never
   // edit another's employee, even by guessing an id.
   const result = await prisma.employee.updateMany({
     where: { id, departmentId: session.departmentId },
-    data: {
-      ...(name !== undefined ? { name } : {}),
-      ...(role !== undefined ? { role } : {}),
-      ...(active !== undefined ? { active } : {}),
-      ...(workingDays !== undefined ? { workingDays } : {}),
-    },
+    data: dataToUpdate,
   });
 
   if (result.count === 0) {
     return NextResponse.json({ error: "Employee not found." }, { status: 404 });
   }
 
-  const employee = await prisma.employee.findUnique({ where: { id } });
+  const employee = await prisma.employee.findUnique({
+    where: { id },
+    include: {
+      department: {
+        select: {
+          checkInStartTime: true,
+          checkInCutoffTime: true,
+          checkInEndTime: true,
+          checkOutStartTime: true,
+          checkOutEndTime: true,
+        },
+      },
+    },
+  });
   return NextResponse.json(employee);
 }
 

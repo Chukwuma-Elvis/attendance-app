@@ -27,6 +27,13 @@ type DepartmentInfo = {
     hasBiometricsRegistered: boolean;
     biometricResetRequested: boolean;
     biometricResetAllowed: boolean;
+    customShifts?: {
+      checkInStart: string;
+      checkInCutoff: string;
+      checkInEnd: string;
+      checkOutStart: string;
+      checkOutEnd: string;
+    } | null;
   }>;
 };
 
@@ -217,30 +224,33 @@ export default function MobileCheckInPage() {
       new Date().getMinutes()
     ).padStart(2, "0")}`;
 
-  const isOvernight = activeDept
+  // Use employee's custom shift if configured, otherwise fallback to department default shifts
+  const effectiveShifts = activeEmp?.customShifts || activeDept?.shifts;
+
+  const isOvernight = effectiveShifts
     ? isOvernightDepartment({
-        checkInStart: activeDept.shifts.checkInStart,
-        checkInEnd: activeDept.shifts.checkInEnd,
-        checkOutStart: activeDept.shifts.checkOutStart,
-        checkOutEnd: activeDept.shifts.checkOutEnd,
+        checkInStart: effectiveShifts.checkInStart,
+        checkInEnd: effectiveShifts.checkInEnd,
+        checkOutStart: effectiveShifts.checkOutStart,
+        checkOutEnd: effectiveShifts.checkOutEnd,
       })
     : false;
 
-  const isCheckInTimeActive = activeDept
-    ? isTimeInWindow(nowHM, activeDept.shifts.checkInStart, activeDept.shifts.checkInEnd)
+  const isCheckInTimeActive = effectiveShifts
+    ? isTimeInWindow(nowHM, effectiveShifts.checkInStart, effectiveShifts.checkInEnd)
     : false;
 
-  const isCheckOutTimeActive = activeDept
-    ? isTimeInWindow(nowHM, activeDept.shifts.checkOutStart, activeDept.shifts.checkOutEnd)
+  const isCheckOutTimeActive = effectiveShifts
+    ? isTimeInWindow(nowHM, effectiveShifts.checkOutStart, effectiveShifts.checkOutEnd)
     : false;
 
   const checkInTimeNotice = isCheckInTimeActive
-    ? `Open until ${activeDept?.shifts.checkInEnd}`
-    : `Opens at ${activeDept?.shifts.checkInStart}`;
+    ? `Open until ${effectiveShifts?.checkInEnd}`
+    : `Opens at ${effectiveShifts?.checkInStart}`;
 
   const checkOutTimeNotice = isCheckOutTimeActive
-    ? `Open until ${activeDept?.shifts.checkOutEnd}`
-    : `Opens at ${activeDept?.shifts.checkOutStart}${isOvernight ? " (Next Morning)" : ""}`;
+    ? `Open until ${effectiveShifts?.checkOutEnd}`
+    : `Opens at ${effectiveShifts?.checkOutStart}${isOvernight ? " (Next Morning)" : ""}`;
 
   // Location MUST be granted and confirmed before check-in or check-out is allowed
   const hasConfirmedLocation = location !== null && !locating && !permissionDenied;
@@ -542,10 +552,22 @@ export default function MobileCheckInPage() {
             <option value="">-- Choose your name --</option>
             {activeDept?.employees.map((e) => (
               <option key={e.id} value={e.id}>
-                {e.name} ({e.role})
+                {e.name} ({e.role}){e.customShifts ? " ⏰" : ""}
               </option>
             ))}
           </select>
+
+          {activeEmp?.customShifts && (
+            <div className="bg-purple-50/70 border border-purple-200 rounded-xl p-3 text-xs text-purple-950 space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-purple-900">
+                <span>⏰</span>
+                <span>Personalized Shift Hours Active</span>
+              </div>
+              <p className="text-[11px] text-purple-800 leading-relaxed">
+                Check-In: <strong>{activeEmp.customShifts.checkInStart} – {activeEmp.customShifts.checkInEnd}</strong> (On-time cutoff: <strong>{activeEmp.customShifts.checkInCutoff}</strong>) &bull; Check-Out: <strong>{activeEmp.customShifts.checkOutStart} – {activeEmp.customShifts.checkOutEnd}</strong>
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Step 3: Location Status */}
@@ -742,7 +764,7 @@ export default function MobileCheckInPage() {
                     <div className="space-y-0.5">
                       <p className="font-bold text-indigo-900">Check-Out Window is Active</p>
                       <p className="text-[11px] text-indigo-800">
-                        Departure check-out is currently open until {activeDept?.shifts.checkOutEnd}. Tap &ldquo;Check Out&rdquo; below to confirm your departure.
+                        Departure check-out is currently open until {effectiveShifts?.checkOutEnd}. Tap &ldquo;Check Out&rdquo; below to confirm your departure.
                       </p>
                     </div>
                   </div>
@@ -752,7 +774,7 @@ export default function MobileCheckInPage() {
                     <div className="space-y-0.5">
                       <p className="font-bold text-emerald-900">Check-In Window is Active</p>
                       <p className="text-[11px] text-emerald-800">
-                        Arrival check-in is currently open until {activeDept?.shifts.checkInEnd}. Tap &ldquo;Check In&rdquo; below to record your attendance.
+                        Arrival check-in is currently open until {effectiveShifts?.checkInEnd}. Tap &ldquo;Check In&rdquo; below to record your attendance.
                       </p>
                     </div>
                   </div>
@@ -762,7 +784,7 @@ export default function MobileCheckInPage() {
                     <div className="space-y-0.5">
                       <p className="font-bold">Outside Shift Hours</p>
                       <p className="text-[11px] text-amber-800">
-                        Check-in: {activeDept?.shifts.checkInStart} – {activeDept?.shifts.checkInEnd} | Check-out: {activeDept?.shifts.checkOutStart} – {activeDept?.shifts.checkOutEnd}. Current time: {nowHM}.
+                        Check-in: {effectiveShifts?.checkInStart} – {effectiveShifts?.checkInEnd} | Check-out: {effectiveShifts?.checkOutStart} – {effectiveShifts?.checkOutEnd}. Current time: {nowHM}.
                       </p>
                     </div>
                   </div>

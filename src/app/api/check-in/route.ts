@@ -131,19 +131,26 @@ export async function POST(req: NextRequest) {
     const dateStr = getLocalDateString(now, clientDate);
     const timeStr = getLocalTimeString(now, clientTime);
 
-    // Detect if this department operates an overnight shift spanning into the next morning
+    // Effective shift timings: employee custom timings take precedence over department defaults
+    const effectiveCheckInStart = employee.customCheckInStartTime || department.checkInStartTime;
+    const effectiveCheckInCutoff = employee.customCheckInCutoffTime || department.checkInCutoffTime;
+    const effectiveCheckInEnd = employee.customCheckInEndTime || department.checkInEndTime;
+    const effectiveCheckOutStart = employee.customCheckOutStartTime || department.checkOutStartTime;
+    const effectiveCheckOutEnd = employee.customCheckOutEndTime || department.checkOutEndTime;
+
+    // Detect if this shift operates overnight spanning into the next morning
     const isOvernight = isOvernightDepartment({
-      checkInStart: department.checkInStartTime,
-      checkInEnd: department.checkInEndTime,
-      checkOutStart: department.checkOutStartTime,
-      checkOutEnd: department.checkOutEndTime,
+      checkInStart: effectiveCheckInStart,
+      checkInEnd: effectiveCheckInEnd,
+      checkOutStart: effectiveCheckOutStart,
+      checkOutEnd: effectiveCheckOutEnd,
     });
 
     // Logical shift date maps early-morning check-ins/check-outs back to the night the shift started
     const shiftDateStr = getLogicalShiftDate(
       dateStr,
       timeStr,
-      department.checkInStartTime,
+      effectiveCheckInStart,
       isOvernight
     );
     const shiftDateObj = new Date(`${shiftDateStr}T00:00:00.000Z`);
@@ -189,9 +196,9 @@ export async function POST(req: NextRequest) {
       // Check shift timing rules
       const shiftEvaluation = evaluateCheckInTime(
         timeStr,
-        department.checkInStartTime,
-        department.checkInCutoffTime,
-        department.checkInEndTime
+        effectiveCheckInStart,
+        effectiveCheckInCutoff,
+        effectiveCheckInEnd
       );
 
       if (!shiftEvaluation.allowed) {
@@ -266,8 +273,8 @@ export async function POST(req: NextRequest) {
 
       const checkOutEval = evaluateCheckOutTime(
         timeStr,
-        department.checkOutStartTime,
-        department.checkOutEndTime
+        effectiveCheckOutStart,
+        effectiveCheckOutEnd
       );
 
       if (!checkOutEval.allowed) {

@@ -11,6 +11,11 @@ type Employee = {
   workingDays: number[];
   biometricResetRequested?: boolean;
   biometricResetAllowed?: boolean;
+  customCheckInStartTime?: string | null;
+  customCheckInCutoffTime?: string | null;
+  customCheckInEndTime?: string | null;
+  customCheckOutStartTime?: string | null;
+  customCheckOutEndTime?: string | null;
   _count?: {
     biometricCredentials: number;
   };
@@ -244,6 +249,11 @@ export default function EmployeesPage() {
               {emp.biometricResetAllowed && !emp.biometricResetRequested && (
                 <span className="text-xs bg-blue-100 text-blue-700 font-semibold px-2 py-0.5 rounded-full border border-blue-300">
                   🔓 Reset Allowed
+                </span>
+              )}
+              {(emp.customCheckInStartTime || emp.customCheckInCutoffTime) && (
+                <span className="text-[11px] bg-purple-50 text-purple-700 font-medium px-2 py-0.5 rounded-full border border-purple-200">
+                  ⏰ {emp.customCheckInStartTime || "Custom"}
                 </span>
               )}
               <span
