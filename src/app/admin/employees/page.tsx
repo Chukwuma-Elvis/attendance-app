@@ -235,14 +235,14 @@ export default function EmployeesPage() {
           <button
             key={emp.id}
             onClick={() => toggleExpanded(emp)}
-            className="w-full flex items-center justify-between gap-3 p-4 text-left bg-white rounded-xl shadow-sm border border-gray-200 hover:bg-gray-50"
+            className="w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 p-3.5 sm:p-4 text-left bg-white rounded-xl shadow-sm border border-gray-200 hover:bg-gray-50 active:bg-gray-100 transition-colors"
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <span className="text-gray-400">▸</span>
-              <span className="font-medium truncate">{emp.name}</span>
-              <span className="text-sm text-gray-500 truncate">{emp.role}</span>
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 w-full sm:w-auto">
+              <span className="text-gray-400 text-xs sm:text-sm shrink-0">▸</span>
+              <span className="font-semibold sm:font-medium text-gray-900 truncate">{emp.name}</span>
+              <span className="text-xs sm:text-sm text-gray-500 truncate">({emp.role})</span>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:shrink-0 pl-5 sm:pl-0">
               {emp.biometricResetRequested && (
                 <span className="text-xs bg-amber-100 text-amber-800 font-semibold px-2 py-0.5 rounded-full border border-amber-300 animate-pulse">
                   ⏳ Reset Requested
@@ -264,7 +264,7 @@ export default function EmployeesPage() {
                 </span>
               )}
               <span
-                className={`text-xs rounded-full px-2 py-1 ${
+                className={`text-xs rounded-full px-2 py-0.5 font-medium ${
                   emp.active ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-500"
                 }`}
               >
@@ -276,11 +276,11 @@ export default function EmployeesPage() {
       </div>
 
       {addOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setAddOpen(false)} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-xs" onClick={() => setAddOpen(false)} />
           <form
             onSubmit={addEmployee}
-            className="relative bg-white rounded-xl shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto"
+            className="relative bg-white rounded-xl shadow-lg w-full max-w-md max-h-[90dvh] overflow-y-auto overscroll-contain animate-in fade-in zoom-in-95 duration-150"
           >
             <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-200">
               <p className="font-medium">Add Employee</p>
@@ -302,7 +302,7 @@ export default function EmployeesPage() {
                 <label className="block text-sm font-medium mb-1">Role</label>
                 <input className="input w-full" value={role} onChange={(e) => setRole(e.target.value)} />
               </div>
-              <button className="btn-primary w-full">Add Employee</button>
+              <button className="btn-primary w-full" disabled={!name.trim() || !role.trim()}>Add Employee</button>
             </div>
           </form>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { isOvernightDepartment } from "@/lib/geo";
 
 type Rule = { id: string; key: string; label: string; amount: number };
@@ -21,7 +21,9 @@ type DepartmentSettings = {
 
 export default function SettingsPage() {
   const [rules, setRules] = useState<Rule[]>([]);
+  const [initialRules, setInitialRules] = useState<Rule[]>([]);
   const [deptSettings, setDeptSettings] = useState<DepartmentSettings | null>(null);
+  const [initialDeptSettings, setInitialDeptSettings] = useState<DepartmentSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Penalty rule state
@@ -42,6 +44,22 @@ export default function SettingsPage() {
       })
     : false;
 
+  const hasDeptChanges = useMemo(() => {
+    if (!deptSettings || !initialDeptSettings) return false;
+    return (
+      (deptSettings.name ?? "") !== (initialDeptSettings.name ?? "") ||
+      (deptSettings.venueName ?? "") !== (initialDeptSettings.venueName ?? "") ||
+      (deptSettings.venueLatitude ?? null) !== (initialDeptSettings.venueLatitude ?? null) ||
+      (deptSettings.venueLongitude ?? null) !== (initialDeptSettings.venueLongitude ?? null) ||
+      Number(deptSettings.venueRadiusMeters) !== Number(initialDeptSettings.venueRadiusMeters) ||
+      deptSettings.checkInStartTime !== initialDeptSettings.checkInStartTime ||
+      deptSettings.checkInCutoffTime !== initialDeptSettings.checkInCutoffTime ||
+      deptSettings.checkInEndTime !== initialDeptSettings.checkInEndTime ||
+      deptSettings.checkOutStartTime !== initialDeptSettings.checkOutStartTime ||
+      deptSettings.checkOutEndTime !== initialDeptSettings.checkOutEndTime
+    );
+  }, [deptSettings, initialDeptSettings]);
+
   async function load() {
     setLoading(true);
     try {
@@ -50,8 +68,16 @@ export default function SettingsPage() {
         fetch("/api/department/settings"),
       ]);
 
-      if (rulesRes.ok) setRules(await rulesRes.json());
-      if (deptRes.ok) setDeptSettings(await deptRes.json());
+      if (rulesRes.ok) {
+        const rulesData: Rule[] = await rulesRes.json();
+        setRules(rulesData);
+        setInitialRules(rulesData);
+      }
+      if (deptRes.ok) {
+        const deptData: DepartmentSettings = await deptRes.json();
+        setDeptSettings(deptData);
+        setInitialDeptSettings(deptData);
+      }
     } catch (e) {
       console.error("Failed to load settings:", e);
     } finally {
@@ -77,6 +103,11 @@ export default function SettingsPage() {
     });
     const data = await res.json().catch(() => ({}));
     setSavingKey(null);
+    if (res.ok) {
+      setInitialRules((prev) =>
+        prev.map((ir) => (ir.key === rule.key ? { ...ir, amount: rule.amount } : ir))
+      );
+    }
     setRuleMessage(data.pending ? "Sent to the owner for approval." : "Saved penalty rule.");
     setTimeout(() => setRuleMessage(null), 3000);
   }
@@ -135,6 +166,7 @@ export default function SettingsPage() {
       if (res.ok) {
         setDeptMessage({ text: "Workplace venue location and shift timings updated successfully." });
         setDeptSettings(data.department);
+        setInitialDeptSettings(data.department);
       } else {
         setDeptMessage({ error: true, text: data.error || "Failed to update settings." });
       }
@@ -182,6 +214,24 @@ export default function SettingsPage() {
 
         <form onSubmit={saveDepartmentSettings} className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Department / Team Name
+              </label>
+              <input
+                className="input w-full font-medium"
+                placeholder="e.g. Lulu Entertainment or Zaza"
+                required
+                value={deptSettings?.name ?? ""}
+                onChange={(e) =>
+                  setDeptSettings((prev) => (prev ? { ...prev, name: e.target.value } : null))
+                }
+              />
+              <span className="text-[11px] text-gray-500 mt-1 block">
+                This name appears on the mobile check-in portal and attendance exports.
+              </span>
+            </div>
+
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-gray-700 mb-1">
                 Venue Name / Description
@@ -252,12 +302,12 @@ export default function SettingsPage() {
               <label className="block text-xs font-semibold text-gray-700 mb-1">
                 Allowed Geofence Radius (Meters)
               </label>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                 <input
                   type="number"
                   min="20"
                   max="5000"
-                  className="input w-36"
+                  className="input w-full sm:w-36"
                   value={deptSettings?.venueRadiusMeters ?? 100}
                   onChange={(e) =>
                     setDeptSettings((prev) =>
@@ -396,7 +446,7 @@ export default function SettingsPage() {
           </div>
 
           <div className="pt-2">
-            <button type="submit" className="btn-primary" disabled={savingDept || loading}>
+            <button type="submit" className="btn-primary" disabled={savingDept || loading || !hasDeptChanges}>
               {savingDept ? "Saving Settings..." : "Save Venue & Shift Settings"}
             </button>
           </div>
@@ -434,28 +484,33 @@ export default function SettingsPage() {
                   </td>
                 </tr>
               )}
-              {rules.map((r) => (
-                <tr key={r.key}>
-                  <td className="font-medium text-gray-900">{r.label}</td>
-                  <td>
-                    <input
-                      type="number"
-                      className="input w-36"
-                      value={r.amount}
-                      onChange={(e) => updateLocalRule(r.key, Number(e.target.value))}
-                    />
-                  </td>
-                  <td>
-                    <button
-                      className="btn-secondary text-xs"
-                      onClick={() => saveRule(r)}
-                      disabled={savingKey === r.key}
-                    >
-                      {savingKey === r.key ? "Saving..." : "Save Amount"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {rules.map((r) => {
+                const origRule = initialRules.find((ir) => ir.key === r.key);
+                const hasRuleChanged = origRule ? origRule.amount !== r.amount : false;
+
+                return (
+                  <tr key={r.key}>
+                    <td className="font-medium text-gray-900">{r.label}</td>
+                    <td>
+                      <input
+                        type="number"
+                        className="input w-36"
+                        value={r.amount}
+                        onChange={(e) => updateLocalRule(r.key, Number(e.target.value))}
+                      />
+                    </td>
+                    <td>
+                      <button
+                        className="btn-secondary text-xs"
+                        onClick={() => saveRule(r)}
+                        disabled={savingKey === r.key || !hasRuleChanged}
+                      >
+                        {savingKey === r.key ? "Saving..." : "Save Amount"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

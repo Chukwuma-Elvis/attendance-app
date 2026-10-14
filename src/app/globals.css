@@ -2,8 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   @apply bg-gray-50 text-gray-900;
+}
+
+/* Prevent iOS Safari auto-zoom on inputs while keeping desktop sizes compact */
+@media (max-width: 640px), (pointer: coarse) {
+  input,
+  select,
+  textarea,
+  .input {
+    font-size: 16px !important;
+  }
 }
 
 /* Layered as components so a utility class (e.g. text-center on a specific
@@ -11,19 +26,32 @@ body {
    selectors below (like `table.data-table th`) win regardless of source order. */
 @layer components {
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-200 p-5;
+    @apply bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-5;
   }
 
   .btn {
-    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors;
+    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-all;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .btn:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  .btn:disabled,
+  .btn[disabled] {
+    @apply opacity-50 cursor-not-allowed pointer-events-none shadow-none;
+    transform: none !important;
   }
 
   .btn-primary {
-    @apply btn bg-brand text-white hover:bg-blue-700;
+    @apply btn bg-brand text-white hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-300 disabled:text-gray-500 disabled:border-gray-300 disabled:opacity-60;
   }
 
   .btn-secondary {
-    @apply btn bg-gray-100 text-gray-800 hover:bg-gray-200;
+    @apply btn bg-gray-100 text-gray-800 hover:bg-gray-200 active:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400 disabled:opacity-60;
   }
 
   .input {
@@ -38,5 +66,28 @@ body {
   }
   table.data-table td {
     @apply border-b border-gray-100 py-2 px-3;
+  }
+}
+
+/* Utilities for mobile touch and safe-area insets */
+@layer utilities {
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .safe-left {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+  .safe-right {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }

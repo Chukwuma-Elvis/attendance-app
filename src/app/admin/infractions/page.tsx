@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 type Employee = { id: string; name: string };
 type Rule = { id: string; key: string; label: string; amount: number };
@@ -263,6 +263,22 @@ export default function InfractionsPage() {
     return employees.find((e) => e.id === employeeId)?.name ?? "Unknown";
   }
 
+  const hasEditChanges = useMemo(() => {
+    if (!editingRow) return false;
+    if (editEmpId !== editingRow.employeeId) return true;
+    if (editDate !== editingRow.date) return true;
+    const origType = editingRow.type === "MISCELLANEOUS" ? "CUSTOM" : editingRow.type;
+    if (editType !== origType) return true;
+    if (editType === "CUSTOM") {
+      if (editCustomName.trim() !== (editingRow.description || "").trim()) return true;
+      if (editAmount !== editingRow.amount) return true;
+    } else {
+      if (editDescription.trim() !== (editingRow.description || "").trim()) return true;
+      if (editAmount !== editingRow.amount) return true;
+    }
+    return false;
+  }, [editingRow, editEmpId, editDate, editType, editCustomName, editDescription, editAmount]);
+
   // Correlate pending changes with applied infractions
   const pendingUpdates = new Map<string, PendingChange>();
   const pendingDeletes = new Map<string, PendingChange>();
@@ -368,9 +384,9 @@ export default function InfractionsPage() {
       <div className="card">
         <h2 className="font-semibold mb-4">Apply Infraction</h2>
         <form onSubmit={applyInfraction} className="flex flex-wrap items-end gap-3">
-          <div>
+          <div className="w-full sm:w-auto">
             <label className="block text-sm font-medium mb-1">Employee</label>
-            <select className="input" value={empId} onChange={(e) => setEmpId(e.target.value)} required>
+            <select className="input w-full sm:w-auto" value={empId} onChange={(e) => setEmpId(e.target.value)} required>
               <option value="">Select...</option>
               {employees.map((e) => (
                 <option key={e.id} value={e.id}>
@@ -379,13 +395,13 @@ export default function InfractionsPage() {
               ))}
             </select>
           </div>
-          <div>
+          <div className="w-full sm:w-auto">
             <label className="block text-sm font-medium mb-1">Work Day</label>
-            <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} required />
+            <input type="date" className="input w-full sm:w-auto" value={date} onChange={(e) => setDate(e.target.value)} required />
           </div>
-          <div>
+          <div className="w-full sm:w-auto">
             <label className="block text-sm font-medium mb-1">Type</label>
-            <select className="input" value={type} onChange={(e) => setType(e.target.value)}>
+            <select className="input w-full sm:w-auto" value={type} onChange={(e) => setType(e.target.value)}>
               <option value="MINOR">
                 {minorRule ? `${minorRule.label} (${formatCurrency(minorRule.amount)})` : "Minor Infraction"}
               </option>
@@ -397,22 +413,22 @@ export default function InfractionsPage() {
           </div>
           {isCustom ? (
             <>
-              <div>
+              <div className="w-full sm:w-auto">
                 <label className="block text-sm font-medium mb-1">Infraction Name</label>
                 <input
-                  className="input"
+                  className="input w-full sm:w-auto"
                   value={customName}
                   onChange={(e) => setCustomName(e.target.value)}
                   placeholder="e.g. Broken glass"
                   required
                 />
               </div>
-              <div>
+              <div className="w-full sm:w-auto">
                 <label className="block text-sm font-medium mb-1">Amount to Deduct (₦)</label>
                 <input
                   type="number"
                   min={1}
-                  className="input w-32"
+                  className="input w-full sm:w-32"
                   value={customAmount}
                   onChange={(e) => setCustomAmount(Number(e.target.value))}
                   required
@@ -420,7 +436,7 @@ export default function InfractionsPage() {
               </div>
             </>
           ) : (
-            <div className="flex-1 min-w-[200px]">
+            <div className="w-full sm:flex-1 sm:min-w-[200px]">
               <label className="block text-sm font-medium mb-1">Description (optional)</label>
               <input
                 className="input w-full"
@@ -430,7 +446,10 @@ export default function InfractionsPage() {
               />
             </div>
           )}
-          <button className="btn-primary" disabled={applying}>
+          <button
+            className="btn-primary w-full sm:w-auto"
+            disabled={applying || !empId || (isCustom && (!customName.trim() || customAmount <= 0))}
+          >
             {applying ? "Submitting..." : role === "ASSISTANT" ? "Submit for Approval" : "Apply Infraction"}
           </button>
         </form>
@@ -568,7 +587,7 @@ export default function InfractionsPage() {
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setEditingRow(null)} />
           <form
             onSubmit={saveEdit}
-            className="relative bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            className="relative bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90dvh] overflow-y-auto overscroll-contain animate-in fade-in zoom-in-95 duration-150"
           >
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
               <h3 className="font-semibold text-gray-900">Edit Infraction</h3>
@@ -690,7 +709,7 @@ export default function InfractionsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={savingEdit}
+                  disabled={savingEdit || !hasEditChanges}
                   className="btn-primary text-xs"
                 >
                   {savingEdit

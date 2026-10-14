@@ -22,11 +22,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <div className="min-h-screen md:flex">
+    <div className="min-h-dvh md:flex">
       <MobileSidebar nav={NAV}>
         <LogoutButton />
       </MobileSidebar>
-      <main className="flex-1 p-4 md:p-8 overflow-x-hidden">{children}</main>
+      <main className="flex-1 p-3.5 sm:p-6 md:p-8 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] overflow-x-hidden">
+        {children}
+      </main>
     </div>
   );
 }

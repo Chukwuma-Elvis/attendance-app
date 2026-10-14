@@ -9,9 +9,16 @@
     "postinstall": "prisma generate",
     "seed": "tsx prisma/seed.ts",
     "accounts": "tsx scripts/update-account.ts",
+    "accounts:create": "tsx scripts/create-account.ts",
+    "department:create": "tsx scripts/create-department.ts",
+    "department:rename": "tsx scripts/rename-department.ts",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:backup": "tsx scripts/backup-db.ts",
+    "db:restore": "tsx scripts/restore-db.ts",
+    "backup:schedule": "tsx scripts/schedule-backup.ts",
+    "backup:unschedule": "tsx scripts/schedule-backup.ts remove"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

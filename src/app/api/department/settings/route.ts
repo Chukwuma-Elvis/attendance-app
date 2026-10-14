@@ -51,6 +51,7 @@ export async function PATCH(req: NextRequest) {
 
   const body = await req.json();
   const {
+    name,
     venueName,
     venueLatitude,
     venueLongitude,
@@ -63,6 +64,20 @@ export async function PATCH(req: NextRequest) {
   } = body;
 
   const dataToUpdate: Record<string, any> = {};
+
+  if (name !== undefined && String(name).trim()) {
+    const trimmed = String(name).trim();
+    const existing = await prisma.department.findFirst({
+      where: { name: trimmed, NOT: { id: session.departmentId } },
+    });
+    if (existing) {
+      return NextResponse.json(
+        { error: `A department named "${trimmed}" already exists.` },
+        { status: 400 }
+      );
+    }
+    dataToUpdate.name = trimmed;
+  }
 
   if (venueName !== undefined) dataToUpdate.venueName = venueName ? String(venueName).trim() : null;
   if (venueLatitude !== undefined) {

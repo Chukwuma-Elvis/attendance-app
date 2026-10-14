@@ -79,7 +79,7 @@ export default function DeductionsPage() {
         >
           Export to Excel
         </a>
-        <div className="ml-auto text-right">
+        <div className="w-full sm:w-auto sm:ml-auto text-left sm:text-right pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100">
           <p className="text-xs uppercase text-gray-500">Grand Total</p>
           <p className="text-xl font-bold text-brand">{formatCurrency(grandTotal)}</p>
         </div>

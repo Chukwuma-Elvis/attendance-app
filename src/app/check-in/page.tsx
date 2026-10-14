@@ -604,8 +604,8 @@ export default function MobileCheckInPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-between p-3 sm:p-6">
-      <div className="max-w-md w-full mx-auto space-y-4 pt-2 pb-8">
+    <div className="min-h-dvh bg-gray-50 flex flex-col justify-between p-3.5 sm:p-6 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+      <div className="max-w-md w-full mx-auto space-y-4 pt-1 pb-6">
         
         {/* Header Banner */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-200 text-center space-y-1">
@@ -804,7 +804,7 @@ export default function MobileCheckInPage() {
                     : "bg-red-50 text-red-900 border-red-200"
                 }`}
               >
-                <div className="flex items-center justify-between font-bold">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 font-bold">
                   <span className="flex items-center gap-1.5">
                     {isInsideGeofence ? (
                       <>
@@ -820,7 +820,7 @@ export default function MobileCheckInPage() {
                   </span>
                   {distanceToVenue !== null && (
                     <span
-                      className={`text-[11px] font-mono px-2 py-0.5 rounded font-bold ${
+                      className={`text-[11px] font-mono px-2 py-0.5 rounded font-bold self-start sm:self-auto ${
                         isInsideGeofence
                           ? "bg-emerald-100 text-emerald-800"
                           : "bg-red-100 text-red-800"
@@ -977,7 +977,7 @@ export default function MobileCheckInPage() {
                         const val = e.target.value.replace(/\D/g, "").slice(0, 6);
                         setPinInput(val);
                       }}
-                      className="input w-full text-center tracking-[0.4em] text-xl font-mono font-bold bg-white border-indigo-300 focus:border-indigo-500 shadow-2xs"
+                      className="input w-full text-center tracking-[0.45em] sm:tracking-[0.55em] text-2xl font-mono font-bold bg-white border-indigo-300 focus:border-indigo-500 shadow-2xs h-13 sm:h-14"
                       autoComplete="one-time-code"
                     />
                   </div>
@@ -991,7 +991,7 @@ export default function MobileCheckInPage() {
                       <button
                         type="button"
                         onClick={() => setPinInput("")}
-                        className="text-gray-400 hover:text-red-600 transition"
+                        className="text-gray-400 hover:text-red-600 transition font-medium"
                       >
                         Clear
                       </button>
@@ -1000,24 +1000,24 @@ export default function MobileCheckInPage() {
                 </div>
 
                 {/* PIN Action buttons */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                   <button
                     type="button"
                     onClick={() => handlePinCheckAction("CHECK_IN")}
                     disabled={!canCheckInWithPin}
-                    className="btn-primary !bg-emerald-600 hover:!bg-emerald-700 !py-3 text-xs font-bold flex flex-col items-center justify-center gap-1 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+                    className="btn-primary !bg-emerald-600 hover:!bg-emerald-700 active:!bg-emerald-800 !py-3 min-h-[74px] sm:min-h-[80px] text-xs font-bold flex flex-col items-center justify-center gap-1 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                   >
-                    <span className="text-lg">☀️</span>
-                    <span>{processing ? "Verifying..." : "Check In with PIN"}</span>
-                    <span className="text-[10px] font-normal opacity-90">
+                    <span className="text-xl">☀️</span>
+                    <span className="text-xs sm:text-sm font-bold">{processing ? "Verifying..." : "Check In"}</span>
+                    <span className="text-[10px] font-normal opacity-90 truncate max-w-full px-1 text-center">
                       {!isCheckInTimeActive
                         ? checkInTimeNotice
                         : !hasConfirmedLocation
-                        ? "Confirm Location Above"
+                        ? "Confirm Location"
                         : isInsideGeofence === false
                         ? `${distanceToVenue}m away (Out of Range)`
                         : pinInput.length !== 6
-                        ? "Enter 6-Digit PIN"
+                        ? "Enter 6 Digits"
                         : "Arrival"}
                     </span>
                   </button>
@@ -1026,19 +1026,19 @@ export default function MobileCheckInPage() {
                     type="button"
                     onClick={() => handlePinCheckAction("CHECK_OUT")}
                     disabled={!canCheckOutWithPin}
-                    className="btn-secondary !border-indigo-600 text-indigo-700 hover:bg-indigo-50 !py-3 text-xs font-bold flex flex-col items-center justify-center gap-1 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+                    className="btn-secondary !border-indigo-600 text-indigo-700 hover:bg-indigo-50 active:bg-indigo-100 !py-3 min-h-[74px] sm:min-h-[80px] text-xs font-bold flex flex-col items-center justify-center gap-1 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                   >
-                    <span className="text-lg">🌙</span>
-                    <span>{processing ? "Verifying..." : "Check Out with PIN"}</span>
-                    <span className="text-[10px] font-normal opacity-90">
+                    <span className="text-xl">🌙</span>
+                    <span className="text-xs sm:text-sm font-bold">{processing ? "Verifying..." : "Check Out"}</span>
+                    <span className="text-[10px] font-normal opacity-90 truncate max-w-full px-1 text-center">
                       {!isCheckOutTimeActive
                         ? checkOutTimeNotice
                         : !hasConfirmedLocation
-                        ? "Confirm Location Above"
+                        ? "Confirm Location"
                         : isInsideGeofence === false
                         ? `${distanceToVenue}m away (Out of Range)`
                         : pinInput.length !== 6
-                        ? "Enter 6-Digit PIN"
+                        ? "Enter 6 Digits"
                         : "Departure"}
                     </span>
                   </button>
@@ -1126,20 +1126,20 @@ export default function MobileCheckInPage() {
                       </div>
                     ) : null}
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                       <button
                         type="button"
                         onClick={() => handleCheckAction("CHECK_IN")}
                         disabled={!canCheckIn}
-                        className="btn-primary !bg-emerald-600 hover:!bg-emerald-700 !py-3 text-xs font-bold flex flex-col items-center justify-center gap-1 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+                        className="btn-primary !bg-emerald-600 hover:!bg-emerald-700 active:!bg-emerald-800 !py-3 min-h-[74px] sm:min-h-[80px] text-xs font-bold flex flex-col items-center justify-center gap-1 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                       >
-                        <span className="text-lg">☀️</span>
-                        <span>{processing ? "Verifying..." : "Check In"}</span>
-                        <span className="text-[10px] font-normal opacity-90">
+                        <span className="text-xl">☀️</span>
+                        <span className="text-xs sm:text-sm font-bold">{processing ? "Verifying..." : "Check In"}</span>
+                        <span className="text-[10px] font-normal opacity-90 truncate max-w-full px-1 text-center">
                           {!isCheckInTimeActive
                             ? checkInTimeNotice
                             : !hasConfirmedLocation
-                            ? "Confirm Location Above"
+                            ? "Confirm Location"
                             : isInsideGeofence === false
                             ? `${distanceToVenue}m away (Out of Range)`
                             : "Arrival"}
@@ -1150,15 +1150,15 @@ export default function MobileCheckInPage() {
                         type="button"
                         onClick={() => handleCheckAction("CHECK_OUT")}
                         disabled={!canCheckOut}
-                        className="btn-secondary !border-brand text-brand hover:bg-brand/5 !py-3 text-xs font-bold flex flex-col items-center justify-center gap-1 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+                        className="btn-secondary !border-brand text-brand hover:bg-brand/5 active:bg-brand/10 !py-3 min-h-[74px] sm:min-h-[80px] text-xs font-bold flex flex-col items-center justify-center gap-1 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                       >
-                        <span className="text-lg">🌙</span>
-                        <span>{processing ? "Verifying..." : "Check Out"}</span>
-                        <span className="text-[10px] font-normal opacity-90">
+                        <span className="text-xl">🌙</span>
+                        <span className="text-xs sm:text-sm font-bold">{processing ? "Verifying..." : "Check Out"}</span>
+                        <span className="text-[10px] font-normal opacity-90 truncate max-w-full px-1 text-center">
                           {!isCheckOutTimeActive
                             ? checkOutTimeNotice
                             : !hasConfirmedLocation
-                            ? "Confirm Location Above"
+                            ? "Confirm Location"
                             : isInsideGeofence === false
                             ? `${distanceToVenue}m away (Out of Range)`
                             : "Departure"}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 type Row = {
   employeeId: string;
@@ -80,6 +80,7 @@ function todayISO() {
 export default function AttendancePage() {
   const [date, setDate] = useState(todayISO());
   const [rows, setRows] = useState<Row[]>([]);
+  const [initialRows, setInitialRows] = useState<Row[]>([]);
   const [offDuty, setOffDuty] = useState<OffDutyEmployee[]>([]);
   const [pendingByEmployee, setPendingByEmployee] = useState<Record<string, string>>({});
   const [addingId, setAddingId] = useState("");
@@ -118,6 +119,7 @@ export default function AttendancePage() {
     const data = await res.json();
     const approvalsData = await approvalsRes.json().catch(() => ({ changes: [] }));
     setRows(data.rows);
+    setInitialRows(data.rows);
     setOffDuty(data.offDuty);
     const pending: Record<string, string> = {};
     for (const c of approvalsData.changes ?? []) {
@@ -177,6 +179,16 @@ export default function AttendancePage() {
     setTimeout(() => setSavedMsg(null), 4000);
   }
 
+  const hasChanges = useMemo(() => {
+    if (loading) return false;
+    if (rows.length !== initialRows.length) return true;
+    return rows.some((r) => {
+      const orig = initialRows.find((i) => i.employeeId === r.employeeId);
+      if (!orig) return true;
+      return (r.status ?? "") !== (orig.status ?? "");
+    });
+  }, [rows, initialRows, loading]);
+
   const roles = Array.from(new Set(rows.map((r) => r.role))).sort();
 
   const displayRows = rows
@@ -190,8 +202,8 @@ export default function AttendancePage() {
       <div className="card">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <p className="text-sm text-gray-500">Mark Attendance</p>
-            <div className="flex items-center gap-2 sm:gap-3">
+            <p className="text-xs uppercase tracking-wider font-semibold text-gray-500">Mark Attendance</p>
+            <div className="flex items-center gap-2 sm:gap-3 mt-1">
               <button
                 onClick={() => setDate((d) => shiftDate(d, -1))}
                 aria-label="Previous day"
@@ -199,7 +211,7 @@ export default function AttendancePage() {
               >
                 ‹
               </button>
-              <h1 className="text-xl sm:text-3xl font-bold text-brand">{dayHeaderLabel(date)}</h1>
+              <h1 className="text-lg sm:text-3xl font-bold text-brand">{dayHeaderLabel(date)}</h1>
               <button
                 onClick={() => setDate((d) => shiftDate(d, 1))}
                 aria-label="Next day"
@@ -210,21 +222,21 @@ export default function AttendancePage() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
-            <button className="btn-primary" onClick={save} disabled={saving}>
+            <input type="date" className="input text-xs sm:text-sm font-medium" value={date} onChange={(e) => setDate(e.target.value)} />
+            <button className="btn-primary text-xs sm:text-sm" onClick={save} disabled={saving || !hasChanges}>
               {saving ? "Saving..." : "Save"}
             </button>
-            {savedMsg && <span className="text-sm text-green-600">{savedMsg}</span>}
+            {savedMsg && <span className="text-xs sm:text-sm text-green-600 font-semibold">{savedMsg}</span>}
           </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 sm:pb-0 sm:flex-wrap">
         {STATUSES.map((s) => (
           <button
             key={s}
             onClick={() => markAll(s)}
-            className={`text-xs rounded-lg px-4 py-2 font-medium transition-colors ${STATUS_BUTTON_COLORS[s]}`}
+            className={`text-xs whitespace-nowrap shrink-0 rounded-lg px-3.5 py-2 font-medium transition-colors ${STATUS_BUTTON_COLORS[s]}`}
           >
             Mark all: {s.replace("_", " ")}
           </button>
@@ -386,11 +398,20 @@ export default function AttendancePage() {
                             className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-semibold font-mono ${
                               r.checkInMethod === "BIOMETRIC_MOBILE"
                                 ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                                : r.checkInMethod === "PIN_MOBILE"
+                                ? "bg-purple-100 text-purple-800 border border-purple-200"
                                 : "bg-gray-100 text-gray-700 border border-gray-200"
                             }`}
-                            title={r.checkInMethod === "BIOMETRIC_MOBILE" ? "Verified with Phone Biometric + GPS" : "Check-In"}
+                            title={
+                              r.checkInMethod === "BIOMETRIC_MOBILE"
+                                ? "Verified with Phone Biometric + GPS"
+                                : r.checkInMethod === "PIN_MOBILE"
+                                ? "Verified with 6-Digit PIN + GPS"
+                                : "Check-In"
+                            }
                           >
                             {formatClock(r.checkInTime)}
+                            {r.checkInMethod === "PIN_MOBILE" && <span className="ml-1 text-[10px]">🔢</span>}
                           </span>
                         ) : (
                           <span className="text-gray-300 font-mono text-xs">—</span>
@@ -402,11 +423,20 @@ export default function AttendancePage() {
                             className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-semibold font-mono ${
                               r.checkOutMethod === "BIOMETRIC_MOBILE"
                                 ? "bg-indigo-100 text-indigo-800 border border-indigo-200"
+                                : r.checkOutMethod === "PIN_MOBILE"
+                                ? "bg-purple-100 text-purple-800 border border-purple-200"
                                 : "bg-gray-100 text-gray-700 border border-gray-200"
                             }`}
-                            title={r.checkOutMethod === "BIOMETRIC_MOBILE" ? "Verified with Phone Biometric + GPS" : "Check-Out"}
+                            title={
+                              r.checkOutMethod === "BIOMETRIC_MOBILE"
+                                ? "Verified with Phone Biometric + GPS"
+                                : r.checkOutMethod === "PIN_MOBILE"
+                                ? "Verified with 6-Digit PIN + GPS"
+                                : "Check-Out"
+                            }
                           >
                             {formatClock(r.checkOutTime)}
+                            {r.checkOutMethod === "PIN_MOBILE" && <span className="ml-1 text-[10px]">🔢</span>}
                           </span>
                         ) : (
                           <span className="text-gray-300 font-mono text-xs">—</span>

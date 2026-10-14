@@ -279,22 +279,22 @@ export default function MonthSummaryPage() {
         </div>
 
         {/* View Switcher */}
-        <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg shrink-0 self-start sm:self-auto">
+        <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg shrink-0 self-start sm:self-auto overflow-x-auto max-w-full no-scrollbar">
           <button
             type="button"
             onClick={() => setViewMode("grid")}
-            className={`px-3 py-1 text-xs font-semibold rounded-md transition ${
+            className={`px-3 py-1 text-xs font-semibold rounded-md transition whitespace-nowrap ${
               viewMode === "grid"
                 ? "bg-white text-brand shadow-sm"
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
-            📊 Month Grid (All Days)
+            📊 Month Grid
           </button>
           <button
             type="button"
             onClick={() => setViewMode("calendar")}
-            className={`px-3 py-1 text-xs font-semibold rounded-md transition ${
+            className={`px-3 py-1 text-xs font-semibold rounded-md transition whitespace-nowrap ${
               viewMode === "calendar"
                 ? "bg-white text-brand shadow-sm"
                 : "text-gray-600 hover:text-gray-900"
@@ -305,7 +305,7 @@ export default function MonthSummaryPage() {
           <button
             type="button"
             onClick={() => setViewMode("deductions")}
-            className={`px-3 py-1 text-xs font-semibold rounded-md transition ${
+            className={`px-3 py-1 text-xs font-semibold rounded-md transition whitespace-nowrap ${
               viewMode === "deductions"
                 ? "bg-white text-brand shadow-sm"
                 : "text-gray-600 hover:text-gray-900"
@@ -708,34 +708,38 @@ export default function MonthSummaryPage() {
                       )}
                     </div>
 
-                    <div className="space-y-1 my-1">
+                    <div className="space-y-0.5 sm:space-y-1 my-1">
                       {present > 0 && (
-                        <div className="flex items-center justify-between text-[11px] px-1.5 py-0.5 rounded bg-green-50 text-green-800 border border-green-200">
-                          <span>Present</span>
+                        <div className="flex items-center justify-between text-[10px] sm:text-[11px] px-1 sm:px-1.5 py-0.5 rounded bg-green-50 text-green-800 border border-green-200">
+                          <span className="hidden sm:inline">Present</span>
+                          <span className="sm:hidden font-bold">P</span>
                           <span className="font-bold">{present}</span>
                         </div>
                       )}
                       {late > 0 && (
-                        <div className="flex items-center justify-between text-[11px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
-                          <span>Late</span>
+                        <div className="flex items-center justify-between text-[10px] sm:text-[11px] px-1 sm:px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                          <span className="hidden sm:inline">Late</span>
+                          <span className="sm:hidden font-bold">L</span>
                           <span className="font-bold">{late}</span>
                         </div>
                       )}
                       {absent > 0 && (
-                        <div className="flex items-center justify-between text-[11px] px-1.5 py-0.5 rounded bg-red-50 text-red-800 border border-red-200">
-                          <span>Absent</span>
+                        <div className="flex items-center justify-between text-[10px] sm:text-[11px] px-1 sm:px-1.5 py-0.5 rounded bg-red-50 text-red-800 border border-red-200">
+                          <span className="hidden sm:inline">Absent</span>
+                          <span className="sm:hidden font-bold">A</span>
                           <span className="font-bold">{absent}</span>
                         </div>
                       )}
                       {excused > 0 && (
-                        <div className="flex items-center justify-between text-[11px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-800 border border-purple-200">
-                          <span>Excused</span>
+                        <div className="flex items-center justify-between text-[10px] sm:text-[11px] px-1 sm:px-1.5 py-0.5 rounded bg-purple-50 text-purple-800 border border-purple-200">
+                          <span className="hidden sm:inline">Excused</span>
+                          <span className="sm:hidden font-bold">E</span>
                           <span className="font-bold">{excused}</span>
                         </div>
                       )}
                     </div>
 
-                    <div className="text-[10px] text-gray-400 text-right">
+                    <div className="text-[9px] sm:text-[10px] text-gray-400 text-right">
                       {off} off
                     </div>
                   </div>

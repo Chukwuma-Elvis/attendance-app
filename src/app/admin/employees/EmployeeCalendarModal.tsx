@@ -512,13 +512,13 @@ export default function EmployeeCalendarModal({
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal Dialog */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92dvh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
         {/* Header */}
         <div className="flex items-center justify-between gap-3 p-4 sm:p-5 border-b border-gray-200 bg-white shrink-0">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-xl font-bold text-gray-900 truncate">{employee.name}</h2>
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{employee.name}</h2>
               <span
                 className={`text-xs font-medium rounded-full px-2 py-0.5 ${
                   employee.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
@@ -527,23 +527,23 @@ export default function EmployeeCalendarModal({
                 {employee.active ? "Active" : "Inactive"}
               </span>
             </div>
-            <p className="text-sm text-gray-500 truncate">{employee.role}</p>
+            <p className="text-xs sm:text-sm text-gray-500 truncate">{employee.role}</p>
           </div>
 
           <button
             onClick={onClose}
             aria-label="Close"
-            className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg p-1.5 transition text-2xl leading-none"
+            className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg p-2 transition text-2xl leading-none"
           >
             &times;
           </button>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex border-b border-gray-200 px-4 sm:px-5 bg-gray-50/50 shrink-0">
+        <div className="flex border-b border-gray-200 px-3 sm:px-5 bg-gray-50/50 shrink-0 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab("calendar")}
-            className={`py-2.5 px-4 text-sm font-medium border-b-2 transition -mb-px flex items-center gap-2 ${
+            className={`py-2.5 px-3 sm:px-4 text-xs sm:text-sm font-medium border-b-2 transition -mb-px flex items-center gap-1.5 shrink-0 ${
               activeTab === "calendar"
                 ? "border-brand text-brand font-semibold"
                 : "border-transparent text-gray-500 hover:text-gray-700"
@@ -554,7 +554,7 @@ export default function EmployeeCalendarModal({
           </button>
           <button
             onClick={() => setActiveTab("settings")}
-            className={`py-2.5 px-4 text-sm font-medium border-b-2 transition -mb-px flex items-center gap-2 ${
+            className={`py-2.5 px-3 sm:px-4 text-xs sm:text-sm font-medium border-b-2 transition -mb-px flex items-center gap-1.5 shrink-0 ${
               activeTab === "settings"
                 ? "border-brand text-brand font-semibold"
                 : "border-transparent text-gray-500 hover:text-gray-700"
@@ -566,7 +566,7 @@ export default function EmployeeCalendarModal({
         </div>
 
         {/* Modal Scrollable Body */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-5 flex-1">
+        <div className="p-3.5 sm:p-5 overflow-y-auto overscroll-contain space-y-4 sm:space-y-5 flex-1">
           {activeTab === "calendar" && (
             <>
               {/* Month Navigation & Selector */}
@@ -715,7 +715,7 @@ export default function EmployeeCalendarModal({
                 <div className="grid grid-cols-7 gap-px bg-gray-200">
                   {/* Leading blanks for offset */}
                   {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-                    <div key={`blank-${i}`} className="bg-gray-50/40 min-h-[58px] sm:min-h-[64px]" />
+                    <div key={`blank-${i}`} className="bg-gray-50/40 min-h-[50px] sm:min-h-[64px]" />
                   ))}
 
                   {/* Month days */}
@@ -760,13 +760,13 @@ export default function EmployeeCalendarModal({
                         key={day.dateStr}
                         type="button"
                         onClick={() => setSelectedDay(day)}
-                        className={`min-h-[58px] sm:min-h-[64px] p-1.5 flex flex-col justify-between text-left transition relative ${cellBg} ${
+                        className={`min-h-[50px] sm:min-h-[64px] p-1 sm:p-1.5 flex flex-col justify-between text-left transition relative ${cellBg} ${
                           isSelected ? "ring-2 ring-brand z-10" : ""
                         }`}
                       >
                         <div className="flex items-center justify-between w-full">
                           <span
-                            className={`text-xs font-semibold rounded-full w-5 h-5 flex items-center justify-center ${
+                            className={`text-[11px] sm:text-xs font-semibold rounded-full w-4.5 h-4.5 sm:w-5 sm:h-5 flex items-center justify-center ${
                               day.isToday
                                 ? "bg-brand text-white font-bold"
                                 : day.status === "OFF"
@@ -781,7 +781,7 @@ export default function EmployeeCalendarModal({
                           {day.infractions.length > 0 && (
                             <span
                               title={`${day.infractions.length} infraction(s)`}
-                              className="text-[10px] font-bold text-white bg-red-600 rounded-full w-3.5 h-3.5 flex items-center justify-center shrink-0 shadow-sm"
+                              className="text-[9px] sm:text-[10px] font-bold text-white bg-red-600 rounded-full w-3 sm:w-3.5 h-3 sm:h-3.5 flex items-center justify-center shrink-0 shadow-sm"
                             >
                               !
                             </span>
@@ -790,9 +790,9 @@ export default function EmployeeCalendarModal({
 
                         {/* Status Label Badge */}
                         {label && (
-                          <div className="mt-1 flex items-center">
+                          <div className="mt-0.5 sm:mt-1 flex items-center">
                             <span
-                              className={`text-[9px] sm:text-[10px] font-semibold px-1 sm:px-1.5 py-0.5 rounded leading-none truncate max-w-full ${badgeClass}`}
+                              className={`text-[8px] sm:text-[10px] font-semibold px-0.5 sm:px-1.5 py-0.5 rounded leading-none truncate max-w-full ${badgeClass}`}
                             >
                               {label}
                             </span>
@@ -925,13 +925,21 @@ export default function EmployeeCalendarModal({
                     />
                   </div>
                 </div>
-                <button
-                  onClick={saveDetails}
-                  disabled={savingDetails}
-                  className="btn-primary text-xs"
-                >
-                  {savingDetails ? "Saving..." : "Save Details"}
-                </button>
+                {(() => {
+                  const hasDetailsChanged =
+                    (nameDraft.trim() !== employee.name || roleDraft.trim() !== employee.role) &&
+                    Boolean(nameDraft.trim()) &&
+                    Boolean(roleDraft.trim());
+                  return (
+                    <button
+                      onClick={saveDetails}
+                      disabled={savingDetails || !hasDetailsChanged}
+                      className="btn-primary text-xs"
+                    >
+                      {savingDetails ? "Saving..." : "Save Details"}
+                    </button>
+                  );
+                })()}
               </div>
 
               {/* Weekly Working Days Schedule */}
@@ -1061,26 +1069,36 @@ export default function EmployeeCalendarModal({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 pt-1 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={saveCustomShifts}
-                    disabled={savingShifts}
-                    className="btn-primary text-xs !py-1.5"
-                  >
-                    {savingShifts ? "Saving..." : "Save Custom Shift Hours"}
-                  </button>
-                  {Boolean(customInStart || customInCutoff || customInEnd || customOutStart || customOutEnd) && (
-                    <button
-                      type="button"
-                      onClick={resetToDefaults}
-                      disabled={savingShifts}
-                      className="btn-secondary text-xs !py-1.5 text-gray-600 hover:text-red-600"
-                    >
-                      Reset to General Defaults
-                    </button>
-                  )}
-                </div>
+                {(() => {
+                  const hasCustomShiftChanges =
+                    customInStart !== (employee.customCheckInStartTime || "") ||
+                    customInCutoff !== (employee.customCheckInCutoffTime || "") ||
+                    customInEnd !== (employee.customCheckInEndTime || "") ||
+                    customOutStart !== (employee.customCheckOutStartTime || "") ||
+                    customOutEnd !== (employee.customCheckOutEndTime || "");
+                  return (
+                    <div className="flex items-center gap-2 pt-1 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={saveCustomShifts}
+                        disabled={savingShifts || !hasCustomShiftChanges}
+                        className="btn-primary text-xs !py-1.5"
+                      >
+                        {savingShifts ? "Saving..." : "Save Custom Shift Hours"}
+                      </button>
+                      {Boolean(customInStart || customInCutoff || customInEnd || customOutStart || customOutEnd) && (
+                        <button
+                          type="button"
+                          onClick={resetToDefaults}
+                          disabled={savingShifts}
+                          className="btn-secondary text-xs !py-1.5 text-gray-600 hover:text-red-600"
+                        >
+                          Reset to General Defaults
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Biometric Device Security & Authorization */}
@@ -1252,13 +1270,13 @@ export default function EmployeeCalendarModal({
                     {hasPinSet ? "Update / Change 6-Digit PIN" : "Set 6-Digit PIN for Employee"}
                   </label>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <div className="relative">
+                    <div className="relative w-full sm:w-36">
                       <input
                         type={showPin ? "text" : "password"}
                         maxLength={6}
                         inputMode="numeric"
                         placeholder="e.g. 123456"
-                        className="input text-xs tracking-widest font-mono w-36 pr-8"
+                        className="input text-xs tracking-widest font-mono w-full pr-8 h-10"
                         value={pinDraft}
                         onChange={(e) => {
                           const val = e.target.value.replace(/\D/g, "").slice(0, 6);
@@ -1269,7 +1287,7 @@ export default function EmployeeCalendarModal({
                         <button
                           type="button"
                           onClick={() => setShowPin((v) => !v)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm p-1"
                           title={showPin ? "Hide PIN" : "Show PIN"}
                         >
                           {showPin ? "🙈" : "👁️"}
@@ -1280,7 +1298,7 @@ export default function EmployeeCalendarModal({
                     <button
                       type="button"
                       onClick={generateRandomPin}
-                      className="btn-secondary text-xs !py-1.5 flex items-center gap-1"
+                      className="btn-secondary text-xs !py-2 sm:!py-1.5 flex items-center gap-1"
                     >
                       <span>🎲</span> Generate Random PIN
                     </button>
@@ -1289,7 +1307,7 @@ export default function EmployeeCalendarModal({
                       type="button"
                       onClick={savePin}
                       disabled={savingPin || pinDraft.length !== 6}
-                      className="btn-primary text-xs !py-1.5"
+                      className="btn-primary text-xs !py-2 sm:!py-1.5"
                     >
                       {savingPin ? "Saving..." : hasPinSet ? "Update PIN" : "Save & Enable PIN"}
                     </button>
@@ -1299,7 +1317,7 @@ export default function EmployeeCalendarModal({
                         type="button"
                         onClick={clearPin}
                         disabled={savingPin}
-                        className="text-xs text-red-600 hover:text-red-800 hover:underline px-2 py-1 ml-auto"
+                        className="text-xs text-red-600 hover:text-red-800 hover:underline px-2 py-1.5 w-full sm:w-auto text-left sm:text-right sm:ml-auto"
                       >
                         Remove PIN
                       </button>
