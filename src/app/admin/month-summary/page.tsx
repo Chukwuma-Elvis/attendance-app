@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import EmployeeCalendarModal from "../employees/EmployeeCalendarModal";
 
 type DayInfo = {
@@ -40,6 +42,7 @@ type EmployeeRow = {
 
 type ItemizedDeduction = {
   id: string;
+  recordId?: string;
   date: string;
   employeeId: string;
   employeeName: string;
@@ -98,6 +101,7 @@ function todayISO() {
 }
 
 export default function MonthSummaryPage() {
+  const router = useRouter();
   const currentMonthISO = getInitialMonth();
   const todayStr = todayISO();
   const [selectedMonth, setSelectedMonth] = useState(currentMonthISO);
@@ -114,10 +118,25 @@ export default function MonthSummaryPage() {
 
   // Selected cell detail tooltip / modal
   const [selectedCell, setSelectedCell] = useState<{
+    employeeId: string;
     employeeName: string;
     role: string;
     day: EmployeeDayStatus;
   } | null>(null);
+
+  // Read URL query parameters on initial mount (e.g. ?month=2026-11&view=deductions)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const qMonth = params.get("month");
+    const qView = params.get("view");
+    if (qMonth && /^\d{4}-\d{2}$/.test(qMonth)) {
+      setSelectedMonth(qMonth);
+    }
+    if (qView === "deductions" || qView === "calendar" || qView === "grid") {
+      setViewMode(qView);
+    }
+  }, []);
 
   // Employee calendar modal
   const [selectedEmployeeForModal, setSelectedEmployeeForModal] = useState<any | null>(null);
@@ -527,6 +546,7 @@ export default function MonthSummaryPage() {
                             key={day.date}
                             onClick={() =>
                               setSelectedCell({
+                                employeeId: emp.employeeId,
                                 employeeName: emp.name,
                                 role: emp.role,
                                 day,
@@ -753,8 +773,13 @@ export default function MonthSummaryPage() {
       {/* VIEW 3: ITEMIZED DEDUCTIONS LOG */}
       {viewMode === "deductions" && (
         <div className="card overflow-x-auto animate-in fade-in duration-150">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold">Itemized Deductions ({itemized.length})</h2>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <div>
+              <h2 className="font-semibold text-gray-900">Itemized Deductions ({itemized.length})</h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Click any deduction to jump directly to the late attendance mark or infraction record.
+              </p>
+            </div>
             <p className="text-sm font-bold text-gray-700">
               Total Sum:{" "}
               <span className="text-brand font-extrabold text-base">
@@ -772,47 +797,81 @@ export default function MonthSummaryPage() {
                 <th>Category</th>
                 <th>Description</th>
                 <th className="text-right">Amount (₦)</th>
+                <th className="text-right">Action</th>
               </tr>
             </thead>
             <tbody>
               {itemized.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="text-center text-gray-400 py-8">
+                  <td colSpan={7} className="text-center text-gray-400 py-8">
                     No deductions recorded in {monthName} {yearNum}.
                   </td>
                 </tr>
               )}
-              {itemized.map((d) => (
-                <tr key={d.id} className="hover:bg-gray-50 transition">
-                  <td className="whitespace-nowrap font-medium text-gray-900">
-                    {new Date(`${d.date}T00:00:00Z`).toLocaleDateString(undefined, {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                      timeZone: "UTC",
-                    })}
-                  </td>
-                  <td className="font-semibold">{d.employeeName}</td>
-                  <td className="text-gray-500">{d.role}</td>
-                  <td>
-                    <span
-                      className={`text-xs rounded-full px-2 py-0.5 font-medium ${
-                        d.category === "LATE"
-                          ? "bg-amber-100 text-amber-800"
-                          : d.category === "ABSENT"
-                          ? "bg-rose-100 text-rose-800 font-bold"
-                          : "bg-purple-100 text-purple-800"
-                      }`}
-                    >
-                      {d.label}
-                    </span>
-                  </td>
-                  <td className="text-gray-600 text-xs">{d.description || "—"}</td>
-                  <td className="text-right font-bold text-red-600 whitespace-nowrap">
-                    {formatCurrency(d.amount)}
-                  </td>
-                </tr>
-              ))}
+              {itemized.map((d) => {
+                const isInfraction = d.category === "INFRACTION";
+                const infractionId = d.recordId || d.id.replace(/^inf-/, "");
+                const targetUrl = isInfraction
+                  ? `/admin/infractions?id=${encodeURIComponent(infractionId)}&employeeId=${encodeURIComponent(d.employeeId)}&date=${encodeURIComponent(d.date)}`
+                  : `/admin/attendance?date=${encodeURIComponent(d.date)}&employeeId=${encodeURIComponent(d.employeeId)}`;
+
+                const linkTitle = isInfraction
+                  ? `Jump to infraction record for ${d.employeeName}`
+                  : `Jump to ${d.category.toLowerCase()} attendance mark for ${d.employeeName} on ${d.date}`;
+
+                return (
+                  <tr
+                    key={d.id}
+                    onClick={() => router.push(targetUrl)}
+                    className="hover:bg-blue-50/70 cursor-pointer transition group"
+                    title={linkTitle}
+                  >
+                    <td className="whitespace-nowrap font-medium text-gray-900">
+                      {new Date(`${d.date}T00:00:00Z`).toLocaleDateString(undefined, {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                        timeZone: "UTC",
+                      })}
+                    </td>
+                    <td className="font-semibold text-gray-900 group-hover:text-brand transition-colors">
+                      {d.employeeName}
+                    </td>
+                    <td className="text-gray-500">{d.role}</td>
+                    <td>
+                      <span
+                        className={`text-xs rounded-full px-2 py-0.5 font-medium ${
+                          d.category === "LATE"
+                            ? "bg-amber-100 text-amber-800"
+                            : d.category === "ABSENT"
+                            ? "bg-rose-100 text-rose-800 font-bold"
+                            : "bg-purple-100 text-purple-800"
+                        }`}
+                      >
+                        {d.label}
+                      </span>
+                    </td>
+                    <td className="text-gray-600 text-xs">{d.description || "—"}</td>
+                    <td className="text-right font-bold text-red-600 whitespace-nowrap">
+                      {formatCurrency(d.amount)}
+                    </td>
+                    <td className="text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <Link
+                        href={targetUrl}
+                        className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-md transition border shadow-2xs ${
+                          isInfraction
+                            ? "bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
+                            : "bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200"
+                        }`}
+                        title={linkTitle}
+                      >
+                        <span>{isInfraction ? "Infraction Record" : "Attendance Mark"}</span>
+                        <span>&rarr;</span>
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -887,12 +946,34 @@ export default function MonthSummaryPage() {
               )}
             </div>
 
-            <button
-              onClick={() => setSelectedCell(null)}
-              className="btn-secondary w-full text-xs"
-            >
-              Close
-            </button>
+            <div className="space-y-1.5 pt-1">
+              {(selectedCell.day.status === "LATE" || selectedCell.day.status === "ABSENT") && (
+                <Link
+                  href={`/admin/attendance?date=${selectedCell.day.date}&employeeId=${selectedCell.employeeId}`}
+                  className="btn-primary w-full text-xs text-center flex items-center justify-center gap-1.5 py-1.5"
+                >
+                  <span>View Attendance Mark</span>
+                  <span>&rarr;</span>
+                </Link>
+              )}
+
+              {selectedCell.day.infractionAmount > 0 && (
+                <Link
+                  href={`/admin/infractions?date=${selectedCell.day.date}&employeeId=${selectedCell.employeeId}`}
+                  className="btn-secondary w-full text-xs text-center flex items-center justify-center gap-1.5 py-1.5 text-purple-700 border-purple-200 hover:bg-purple-50"
+                >
+                  <span>View Infraction Record</span>
+                  <span>&rarr;</span>
+                </Link>
+              )}
+
+              <button
+                onClick={() => setSelectedCell(null)}
+                className="btn-secondary w-full text-xs"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

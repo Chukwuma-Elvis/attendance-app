@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import Link from "next/link";
 
 type Employee = { id: string; name: string };
 type Rule = { id: string; key: string; label: string; amount: number };
@@ -53,6 +54,33 @@ export default function InfractionsPage() {
   const [recent, setRecent] = useState<InfractionRow[]>([]);
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
   const [loading, setLoading] = useState(true);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const qId = params.get("id");
+    const qEmp = params.get("employeeId");
+    if (qId) {
+      setHighlightedId(qId);
+    } else if (qEmp) {
+      setHighlightedId(qEmp);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!loading && highlightedId) {
+      const timer = setTimeout(() => {
+        const el =
+          document.getElementById(`infraction-row-${highlightedId}`) ||
+          document.getElementById(`infraction-row-inf-${highlightedId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, highlightedId]);
 
   // Apply form state
   const [empId, setEmpId] = useState("");
@@ -455,6 +483,35 @@ export default function InfractionsPage() {
         </form>
       </div>
 
+      {highlightedId && (
+        <div className="bg-purple-50 border border-purple-200 text-purple-900 text-xs px-4 py-3 rounded-xl flex items-center justify-between flex-wrap gap-2 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2">
+            <span className="text-base">⚖️</span>
+            <div>
+              <span className="font-bold">Focused Infraction Record:</span>{' '}
+              <span>
+                Highlighting selected infraction record (navigated from Itemized Deductions).
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/admin/month-summary?view=deductions"
+              className="text-purple-800 underline hover:text-purple-950 font-semibold"
+            >
+              &larr; Back to Itemized Deductions
+            </Link>
+            <button
+              onClick={() => setHighlightedId(null)}
+              className="text-purple-600 hover:text-purple-900 font-bold ml-1 text-sm leading-none"
+              title="Dismiss highlight"
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Infractions Table Card */}
       <div className="card overflow-x-auto">
         <div className="flex items-center justify-between mb-4">
@@ -480,9 +537,36 @@ export default function InfractionsPage() {
                 <td colSpan={7} className="text-center text-gray-400 py-6">Loading...</td>
               </tr>
             )}
-            {displayRows.map((r) => (
-              <tr key={r.id}>
-                <td className="font-medium">{r.employeeName}</td>
+            {displayRows.map((r) => {
+              const isHighlighted =
+                Boolean(highlightedId) &&
+                (r.id === highlightedId ||
+                  r.infractionId === highlightedId ||
+                  r.id === `inf-${highlightedId}` ||
+                  r.pendingChangeId === highlightedId ||
+                  (r.employeeId === highlightedId && !displayRows.some((other) => other.infractionId === highlightedId)));
+              const rowElementId = r.infractionId ? `infraction-row-${r.infractionId}` : `infraction-row-${r.id}`;
+
+              return (
+                <tr
+                  key={r.id}
+                  id={rowElementId}
+                  className={`transition-colors duration-200 ${
+                    isHighlighted
+                      ? "bg-purple-100/70 ring-2 ring-inset ring-purple-400 font-medium"
+                      : "hover:bg-gray-50"
+                  }`}
+                >
+                  <td className="font-medium">
+                    <div className="flex items-center gap-2">
+                      <span>{r.employeeName}</span>
+                      {isHighlighted && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-purple-200 text-purple-900 animate-pulse">
+                          Focused Record
+                        </span>
+                      )}
+                    </div>
+                  </td>
                 <td>{new Date(`${r.date.slice(0, 10)}T00:00:00Z`).toLocaleDateString(undefined, { timeZone: "UTC" })}</td>
                 <td>{typeLabel(r.type)}</td>
                 <td>{r.description || "—"}</td>
@@ -571,7 +655,8 @@ export default function InfractionsPage() {
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
             {!loading && displayRows.length === 0 && (
               <tr>
                 <td colSpan={7} className="text-center text-gray-400 py-6">No infractions recorded yet.</td>

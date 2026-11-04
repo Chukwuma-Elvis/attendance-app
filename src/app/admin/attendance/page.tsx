@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
+import Link from "next/link";
 import { dayHeaderLabel, shiftDate, todayISO, STATUS_BUTTON_COLORS } from "@/lib/utils/optimization";
 
 type Row = {
@@ -71,6 +72,34 @@ export default function AttendancePage() {
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [showTimes, setShowTimes] = useState(false);
+  const [highlightedEmployeeId, setHighlightedEmployeeId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const qDate = params.get("date");
+    const qEmp = params.get("employeeId");
+    if (qDate && /^\d{4}-\d{2}-\d{2}$/.test(qDate)) {
+      setDate(qDate);
+    }
+    if (qEmp) {
+      setHighlightedEmployeeId(qEmp);
+      setRoleFilter("ALL");
+      setShowTimes(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!loading && highlightedEmployeeId) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`attendance-row-${highlightedEmployeeId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, highlightedEmployeeId]);
 
   useEffect(() => {
     try {
@@ -211,6 +240,34 @@ export default function AttendancePage() {
           </div>
         </div>
       </div>
+      {highlightedEmployeeId && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-900 text-xs px-4 py-3 rounded-xl flex items-center justify-between flex-wrap gap-2 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2">
+            <span className="text-base">📌</span>
+            <div>
+              <span className="font-bold">Focused Attendance Record:</span>{' '}
+              <span>
+                Viewing attendance on <strong>{date}</strong> for the highlighted employee (navigated from Itemized Deductions).
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/admin/month-summary?month=${date.slice(0, 7)}&view=deductions`}
+              className="text-amber-800 underline hover:text-amber-950 font-semibold"
+            >
+              &larr; Back to Itemized Deductions
+            </Link>
+            <button
+              onClick={() => setHighlightedEmployeeId(null)}
+              className="text-amber-600 hover:text-amber-900 font-bold ml-1 text-sm leading-none"
+              title="Dismiss highlight"
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 sm:pb-0 sm:flex-wrap">
         {STATUSES.map((s) => (
@@ -346,9 +403,28 @@ export default function AttendancePage() {
                   </td>
                 </tr>
               )}
-              {displayRows.map((r) => (
-                <tr key={r.employeeId}>
-                  <td className="font-medium text-gray-900">{r.name}</td>
+              {displayRows.map((r) => {
+                const isHighlighted = r.employeeId === highlightedEmployeeId;
+                return (
+                  <tr
+                    key={r.employeeId}
+                    id={`attendance-row-${r.employeeId}`}
+                    className={`transition-colors duration-200 ${
+                      isHighlighted
+                        ? "bg-amber-100/70 ring-2 ring-inset ring-amber-400 font-medium"
+                        : "hover:bg-gray-50"
+                    }`}
+                  >
+                    <td className="font-medium text-gray-900">
+                      <div className="flex items-center gap-2">
+                        <span>{r.name}</span>
+                        {isHighlighted && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-200 text-amber-900 animate-pulse">
+                            Focused Mark
+                          </span>
+                        )}
+                      </div>
+                    </td>
                   <td className="text-gray-600">{r.role}</td>
                   <td>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -426,7 +502,8 @@ export default function AttendancePage() {
                     </>
                   )}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

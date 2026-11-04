@@ -166,6 +166,7 @@ export async function GET(req: NextRequest) {
   // Itemized deductions list across the whole month
   const attendanceDeductionEvents: Array<{
     id: string;
+    recordId: string;
     date: string;
     employeeId: string;
     employeeName: string;
@@ -182,6 +183,7 @@ export async function GET(req: NextRequest) {
         const isLate = att.status === "LATE";
         attendanceDeductionEvents.push({
           id: `att-${att.id}`,
+          recordId: att.id,
           date: toISODate(att.date),
           employeeId: emp.id,
           employeeName: emp.name,
@@ -212,6 +214,7 @@ export async function GET(req: NextRequest) {
 
     return {
       id: `inf-${i.id}`,
+      recordId: i.id,
       date: toISODate(i.date),
       employeeId: i.employeeId,
       employeeName: i.employee.name,
