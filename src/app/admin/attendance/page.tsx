@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import { dayHeaderLabel, shiftDate, todayISO, STATUS_BUTTON_COLORS } from "@/lib/utils/optimization";
 
 type Row = {
   employeeId: string;
@@ -14,16 +15,6 @@ type Row = {
   checkOutMethod?: string | null;
 };
 
-function formatClock(iso?: string | null) {
-  if (!iso) return "—";
-  try {
-    const d = new Date(iso);
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return "—";
-  }
-}
-
 type OffDutyEmployee = {
   employeeId: string;
   name: string;
@@ -36,7 +27,7 @@ type PendingChange = {
   payload: { employeeId: string; date: string; status: string };
 };
 
-const STATUSES = ["PRESENT", "LATE", "ABSENT", "EXCUSED"];
+const STATUSES = ["PRESENT", "LATE", "ABSENT", "EXCUSED"] as const;
 
 const STATUS_COLORS: Record<string, string> = {
   PRESENT: "bg-green-50 text-green-700 border-green-300 focus:ring-green-500",
@@ -45,36 +36,26 @@ const STATUS_COLORS: Record<string, string> = {
   EXCUSED: "bg-purple-50 text-purple-700 border-purple-300 focus:ring-purple-500",
 };
 
-const STATUS_BUTTON_COLORS: Record<string, string> = {
-  PRESENT: "bg-green-100 text-green-700 hover:bg-green-200",
-  LATE: "bg-amber-100 text-amber-700 hover:bg-amber-200",
-  ABSENT: "bg-red-100 text-red-700 hover:bg-red-200",
-  EXCUSED: "bg-purple-100 text-purple-700 hover:bg-purple-200",
+const STATUS_SELECT_COLORS: Record<string, string> = {
+  PRESENT: "bg-green-50 text-green-700 border-green-300 focus:ring-green-500",
+  LATE: "bg-amber-50 text-amber-700 border-amber-300 focus:ring-amber-500",
+  ABSENT: "bg-red-50 text-red-700 border-red-300 focus:ring-red-500",
+  EXCUSED: "bg-purple-50 text-purple-700 border-purple-300 focus:ring-purple-500",
 };
 
+function formatClock(iso?: string | null) {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "—";
+  }
+}
+
 function statusSelectClasses(status: string | null) {
-  const colors = status ? STATUS_COLORS[status] : "bg-white text-gray-900 border-gray-300 focus:ring-brand";
+  const colors = status ? STATUS_SELECT_COLORS[status] : "bg-white text-gray-900 border-gray-300 focus:ring-brand";
   return `rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${colors}`;
-}
-
-function dayHeaderLabel(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: "UTC",
-  });
-}
-
-function shiftDate(dateStr: string, delta: number) {
-  const d = new Date(dateStr);
-  d.setUTCDate(d.getUTCDate() + delta);
-  return d.toISOString().slice(0, 10);
-}
-
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
 }
 
 export default function AttendancePage() {
