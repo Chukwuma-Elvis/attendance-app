@@ -109,6 +109,7 @@ async function run() {
     "src/app/api/biometrics/register-verify/route.ts",
     "src/app/api/biometrics/request-reset/route.ts",
     "src/app/api/check-in/route.ts",
+    "src/app/api/check-in/location-check/route.ts",
   ];
 
   for (const relPath of biometricRoutes) {
@@ -119,15 +120,23 @@ async function run() {
   }
 
   // ---------------------------------------------------------------------------
-  // TEST 6: Mobile Check-In Client Component Hardening (R2)
+  // TEST 6: Mobile Check-In Client Component Hardening (R2) & Zero Coordinate Exposure
   // ---------------------------------------------------------------------------
-  console.log("\n[TEST 6] Auditing Mobile Check-In Client Component (R2)...");
+  console.log("\n[TEST 6] Auditing Mobile Check-In Client Component & Zero Coordinate Leakage (R2)...");
   const clientPageSource = fs.readFileSync(
     path.join(process.cwd(), "src/app/check-in/page.tsx"),
     "utf8"
   );
   assert(!clientPageSource.includes("{e.name} ({e.role})"), "Check-in dropdown does not disclose employee roles");
   assert(clientPageSource.includes("role?: string"), "DepartmentInfo marks role optional");
+
+  const locCheckSource = fs.readFileSync(
+    path.join(process.cwd(), "src/app/api/check-in/location-check/route.ts"),
+    "utf8"
+  );
+  assert(!locCheckSource.includes("venueLatitude: department.venueLatitude"), "location-check never leaks venueLatitude");
+  assert(!locCheckSource.includes("venueLongitude: department.venueLongitude"), "location-check never leaks venueLongitude");
+  assert(locCheckSource.includes("verifyGeofence"), "location-check performs server-side Haversine verification");
 
   // ---------------------------------------------------------------------------
   // RESULTS SUMMARY

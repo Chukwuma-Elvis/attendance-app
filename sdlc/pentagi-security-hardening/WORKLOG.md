@@ -55,6 +55,7 @@ Append-only. To change a decision, add a new entry that supersedes it.
 | D4 | 2026-11-17 | Adopt modern-web-guidance + Assumed Security Baseline | Enforce OWASP security headers, input sanitization, generic 500s | Tech Lead | spec.md, plan.md | active |
 | D5 | 2026-11-17 | Redact GPS coordinates and employee roles from `GET /api/check-in/departments` | Removes PII and secret physical location leakage while preserving client mobile check-in | Tech Lead | spec.md, plan.md | active |
 | D6 | 2026-11-17 | Complete in-memory sliding window rate limiter | Protects against brute-force employee enumeration without external Redis dependency | Tech Lead | spec.md, plan.md | active |
+| D7 | 2026-11-17 | Adopt Option B: Server-side geofence pre-flight (`/api/check-in/location-check`) | Restores live green/red visual proximity badges on mobile UI while keeping venue coordinates 100% hidden | Tech Lead | check-in/page.tsx, location-check | active |
 
 ## Questions and answers
 | # | Date | Stage | Question | Answer | Status |
@@ -90,3 +91,4 @@ Append-only, newest last.
 - 2026-11-17 12:37 · Antigravity · Created and ran `scripts/security-audit-verify.ts` (41/41 test assertions passed).
 - 2026-11-17 12:38 · Antigravity · Executed `npm run build` — compiled with zero TypeScript or build errors in 7.8s.
 - 2026-11-17 12:57 · Tech Lead (User) & Antigravity · Committed changes as `c0a5cb0` and deployed via `git push origin main`. Working tree clean.
+- 2026-11-17 15:06 · Antigravity · Resolved geofence fallback UI issue by implementing Option B: created `src/app/api/check-in/location-check/route.ts` and updated `src/app/check-in/page.tsx` with live server proximity pre-flight. All 46 audit tests passed and `npm run build` succeeded.

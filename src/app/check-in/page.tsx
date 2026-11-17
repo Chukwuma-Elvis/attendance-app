@@ -216,25 +216,77 @@ export default function MobileCheckInPage() {
     return () => clearInterval(interval);
   }, [activeEmp?.biometricResetRequested]);
 
-  // Compute distance to venue
-  let distanceToVenue: number | null = null;
-  let isInsideGeofence: boolean | null = null;
+  // Server-verified geofencing state (Option B: zero coordinate leakage to client)
+  const [geofenceStatus, setGeofenceStatus] = useState<{
+    hasVenueLocation: boolean;
+    isInsideGeofence: boolean;
+    distanceMeters: number | null;
+    allowedRadiusMeters: number | null;
+    verifying: boolean;
+  } | null>(null);
 
-  if (location && activeDept && activeDept.venueLatitude && activeDept.venueLongitude) {
-    distanceToVenue = calculateDistanceMeters(
-      location.lat,
-      location.lng,
-      activeDept.venueLatitude,
-      activeDept.venueLongitude
-    );
-    isInsideGeofence = distanceToVenue <= activeDept.venueRadiusMeters;
-  } else if (location && activeDept && (!activeDept.venueLatitude || !activeDept.venueLongitude)) {
-    // Venue GPS not set by admin yet, but device location is confirmed
-    isInsideGeofence = true;
-  } else {
-    // No confirmed location yet
-    isInsideGeofence = null;
-  }
+  // Proximity pre-flight check when activeDept or location updates
+  useEffect(() => {
+    if (!activeDept || !location) {
+      setGeofenceStatus(null);
+      return;
+    }
+
+    if (!activeDept.hasVenueLocation) {
+      setGeofenceStatus({
+        hasVenueLocation: false,
+        isInsideGeofence: true,
+        distanceMeters: null,
+        allowedRadiusMeters: activeDept.venueRadiusMeters || null,
+        verifying: false,
+      });
+      return;
+    }
+
+    let isMounted = true;
+    setGeofenceStatus((prev) => (prev ? { ...prev, verifying: true } : {
+      hasVenueLocation: true,
+      isInsideGeofence: false,
+      distanceMeters: null,
+      allowedRadiusMeters: null,
+      verifying: true,
+    }));
+
+    fetch("/api/check-in/location-check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        departmentId: activeDept.id,
+        latitude: location.lat,
+        longitude: location.lng,
+      }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!isMounted || !data) return;
+        setGeofenceStatus({
+          hasVenueLocation: Boolean(data.hasVenueLocation),
+          isInsideGeofence: Boolean(data.isInsideGeofence),
+          distanceMeters: typeof data.distanceMeters === "number" ? data.distanceMeters : null,
+          allowedRadiusMeters: typeof data.allowedRadiusMeters === "number" ? data.allowedRadiusMeters : null,
+          verifying: false,
+        });
+      })
+      .catch((err) => {
+        console.error("Location proximity pre-flight error:", err);
+        if (isMounted) {
+          setGeofenceStatus((prev) => (prev ? { ...prev, verifying: false } : null));
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeDept?.id, activeDept?.hasVenueLocation, location?.lat, location?.lng]);
+
+  const distanceToVenue: number | null = geofenceStatus?.distanceMeters ?? null;
+  const isInsideGeofence: boolean | null = geofenceStatus ? geofenceStatus.isInsideGeofence : null;
+  const isVerifyingLocation: boolean = geofenceStatus?.verifying ?? false;
 
   // Shift time window evaluations (using local device clock)
   const nowHM =
@@ -409,23 +461,15 @@ export default function MobileCheckInPage() {
     }
 
     // Step B: Verify geofence before proceeding
-    if (activeDept && activeDept.venueLatitude && activeDept.venueLongitude) {
-      const dist = calculateDistanceMeters(
-        coords.lat,
-        coords.lng,
-        activeDept.venueLatitude,
-        activeDept.venueLongitude
-      );
-      if (dist > activeDept.venueRadiusMeters) {
-        setResultMessage({
-          type: "error",
-          title: "Outside Workplace Venue",
-          detail: `Check-in blocked: You are ${dist}m away from ${
-            activeDept.venueName || "the venue"
-          }. Maximum allowed radius is ${activeDept.venueRadiusMeters}m.`,
-        });
-        return;
-      }
+    if (geofenceStatus && geofenceStatus.isInsideGeofence === false) {
+      setResultMessage({
+        type: "error",
+        title: "Outside Workplace Venue",
+        detail: `Check-in blocked: You are ${geofenceStatus.distanceMeters ?? "too far"}m away from ${
+          activeDept?.venueName || "the venue"
+        }. Maximum allowed radius is ${geofenceStatus.allowedRadiusMeters ?? activeDept?.venueRadiusMeters}m.`,
+      });
+      return;
     }
 
     setProcessing(true);
@@ -534,23 +578,15 @@ export default function MobileCheckInPage() {
     }
 
     // Step B: Verify geofence before proceeding
-    if (activeDept && activeDept.venueLatitude && activeDept.venueLongitude) {
-      const dist = calculateDistanceMeters(
-        coords.lat,
-        coords.lng,
-        activeDept.venueLatitude,
-        activeDept.venueLongitude
-      );
-      if (dist > activeDept.venueRadiusMeters) {
-        setResultMessage({
-          type: "error",
-          title: "Outside Workplace Venue",
-          detail: `Check-in blocked: You are ${dist}m away from ${
-            activeDept.venueName || "the venue"
-          }. Maximum allowed radius is ${activeDept.venueRadiusMeters}m.`,
-        });
-        return;
-      }
+    if (geofenceStatus && geofenceStatus.isInsideGeofence === false) {
+      setResultMessage({
+        type: "error",
+        title: "Outside Workplace Venue",
+        detail: `Check-in blocked: You are ${geofenceStatus.distanceMeters ?? "too far"}m away from ${
+          activeDept?.venueName || "the venue"
+        }. Maximum allowed radius is ${geofenceStatus.allowedRadiusMeters ?? activeDept?.venueRadiusMeters}m.`,
+      });
+      return;
     }
 
     setProcessing(true);
@@ -798,15 +834,22 @@ export default function MobileCheckInPage() {
             {/* D. If location is confirmed */}
             {location && (
               <div
-                className={`p-3.5 rounded-xl text-xs space-y-1.5 border ${
-                  isInsideGeofence
+                className={`p-3.5 rounded-xl text-xs space-y-1.5 border transition-colors ${
+                  isVerifyingLocation
+                    ? "bg-slate-50 text-slate-800 border-slate-200"
+                    : isInsideGeofence
                     ? "bg-emerald-50 text-emerald-900 border-emerald-200"
                     : "bg-red-50 text-red-900 border-red-200"
                 }`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 font-bold">
                   <span className="flex items-center gap-1.5">
-                    {isInsideGeofence ? (
+                    {isVerifyingLocation ? (
+                      <>
+                        <span className="animate-spin inline-block">🔄</span>
+                        <span>Verifying Workplace Proximity...</span>
+                      </>
+                    ) : isInsideGeofence ? (
                       <>
                         <span className="text-emerald-600 text-sm">✓</span>
                         <span>Workplace Location Confirmed</span>
@@ -818,7 +861,7 @@ export default function MobileCheckInPage() {
                       </>
                     )}
                   </span>
-                  {distanceToVenue !== null && (
+                  {distanceToVenue !== null && !isVerifyingLocation && (
                     <span
                       className={`text-[11px] font-mono px-2 py-0.5 rounded font-bold self-start sm:self-auto ${
                         isInsideGeofence
@@ -826,16 +869,20 @@ export default function MobileCheckInPage() {
                           : "bg-red-100 text-red-800"
                       }`}
                     >
-                      {distanceToVenue}m away (Max: {activeDept?.venueRadiusMeters}m)
+                      {distanceToVenue}m away (Max: {geofenceStatus?.allowedRadiusMeters ?? activeDept?.venueRadiusMeters}m)
                     </span>
                   )}
                 </div>
                 <p className="text-[11px] opacity-85">
-                  {isInsideGeofence
-                    ? activeDept?.hasVenueLocation
-                      ? `GPS location captured (Accuracy: ±${Math.round(location.accuracy)}m). Workplace geofence verified on submission.`
-                      : `GPS verified (Accuracy: ±${Math.round(location.accuracy)}m).`
-                    : `You are too far from ${activeDept?.venueName || "the assigned workplace"}. Check-in is blocked until you arrive at the venue.`}
+                  {isVerifyingLocation
+                    ? "Calculating physical proximity to assigned workplace venue..."
+                    : isInsideGeofence
+                    ? distanceToVenue !== null
+                      ? `GPS verified within venue radius (Accuracy: ±${Math.round(location.accuracy)}m).`
+                      : `GPS location confirmed (Accuracy: ±${Math.round(location.accuracy)}m).`
+                    : `You are ${distanceToVenue !== null ? `${distanceToVenue}m` : "too far"} away from ${
+                        activeDept?.venueName || "the assigned workplace"
+                      }. Check-in is blocked until you arrive at the venue.`}
                 </p>
               </div>
             )}
@@ -915,7 +962,11 @@ export default function MobileCheckInPage() {
                           ? "Please wait while your GPS coordinates are being acquired."
                           : !hasConfirmedLocation
                           ? 'Please tap "Confirm Location" in Step 3 above so we can verify your presence at the venue.'
-                          : `You are ${distanceToVenue}m away from ${activeDept?.venueName || "the workplace"}. Check-in is allowed within ${activeDept?.venueRadiusMeters}m.`}
+                          : `You are ${distanceToVenue !== null ? `${distanceToVenue}m` : "too far"} away from ${
+                              activeDept?.venueName || "the workplace"
+                            }. Check-in is allowed within ${
+                              geofenceStatus?.allowedRadiusMeters ?? activeDept?.venueRadiusMeters
+                            }m.`}
                       </p>
                     </div>
                   </div>
@@ -1092,7 +1143,11 @@ export default function MobileCheckInPage() {
                               ? "Please wait while your GPS coordinates are being acquired."
                               : !hasConfirmedLocation
                               ? 'Please tap "Confirm Location" in Step 3 above so we can verify your presence at the venue.'
-                              : `You are ${distanceToVenue}m away from ${activeDept?.venueName || "the workplace"}. Check-in is allowed within ${activeDept?.venueRadiusMeters}m.`}
+                              : `You are ${distanceToVenue !== null ? `${distanceToVenue}m` : "too far"} away from ${
+                                  activeDept?.venueName || "the workplace"
+                                }. Check-in is allowed within ${
+                                  geofenceStatus?.allowedRadiusMeters ?? activeDept?.venueRadiusMeters
+                                }m.`}
                           </p>
                         </div>
                       </div>
