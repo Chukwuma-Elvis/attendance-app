@@ -89,3 +89,4 @@ Append-only, newest last.
 - 2026-11-17 12:36 · Antigravity · Hardened `src/app/api/biometrics/*` and `src/app/api/check-in/route.ts`.
 - 2026-11-17 12:37 · Antigravity · Created and ran `scripts/security-audit-verify.ts` (41/41 test assertions passed).
 - 2026-11-17 12:38 · Antigravity · Executed `npm run build` — compiled with zero TypeScript or build errors in 7.8s.
+- 2026-11-17 12:57 · Tech Lead (User) & Antigravity · Committed changes as `c0a5cb0` and deployed via `git push origin main`. Working tree clean.
