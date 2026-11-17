@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "test": "tsx scripts/security-audit-verify.ts",
+    "test:security": "tsx scripts/security-audit-verify.ts",
     "start": "next start",
     "postinstall": "prisma generate",
     "seed": "tsx prisma/seed.ts",
@@ -18,7 +20,8 @@
     "db:backup": "tsx scripts/backup-db.ts",
     "db:restore": "tsx scripts/restore-db.ts",
     "backup:schedule": "tsx scripts/schedule-backup.ts",
-    "backup:unschedule": "tsx scripts/schedule-backup.ts remove"
+    "backup:unschedule": "tsx scripts/schedule-backup.ts remove",
+    "linkedin:publish": "tsx scripts/publish-linkedin.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

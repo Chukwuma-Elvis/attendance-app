@@ -1,15 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAuthenticationChallenge } from "@/lib/webauthn";
+import { isValidId, badRequestResponse, safeErrorResponse } from "@/lib/validation";
+import { checkRateLimit, rateLimitExceededResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
 // POST /api/biometrics/auth-options
 export async function POST(req: NextRequest) {
-  try {
-    const { employeeId } = await req.json();
+  // 1. Enforce rate limiting to prevent automated enumeration
+  const rateLimit = checkRateLimit(req, 20, 60 * 1000);
+  if (!rateLimit.allowed) {
+    return rateLimitExceededResponse(rateLimit.resetMs);
+  }
 
-    if (!employeeId) {
-      return NextResponse.json({ error: "employeeId is required." }, { status: 400 });
+  try {
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return badRequestResponse("Invalid JSON payload.");
+    }
+
+    const { employeeId } = body || {};
+
+    // 2. Strict primitive type validation
+    if (!isValidId(employeeId)) {
+      return badRequestResponse("Valid employeeId is required.");
     }
 
     const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "localhost:3000";
@@ -17,10 +33,14 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(options);
   } catch (error: any) {
-    console.error("Failed to generate authentication challenge:", error);
-    return NextResponse.json(
-      { error: error?.message || "Failed to generate authentication challenge." },
-      { status: 400 }
-    );
+    // If it's a known user-facing validation error from webauthn challenge generation
+    if (
+      typeof error?.message === "string" &&
+      error.message.includes("No biometric passkey registered")
+    ) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    return safeErrorResponse(error, "Failed to generate authentication challenge.", 500);
   }
 }

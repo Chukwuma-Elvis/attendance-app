@@ -1,16 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { isValidId, badRequestResponse, safeErrorResponse } from "@/lib/validation";
+import { checkRateLimit, rateLimitExceededResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
 // POST /api/biometrics/request-reset
 // Called by an employee from the check-in portal when they need to change/re-register their device
 export async function POST(req: NextRequest) {
-  try {
-    const { employeeId } = await req.json();
+  // 1. Enforce rate limiting
+  const rateLimit = checkRateLimit(req, 10, 60 * 1000);
+  if (!rateLimit.allowed) {
+    return rateLimitExceededResponse(rateLimit.resetMs);
+  }
 
-    if (!employeeId) {
-      return NextResponse.json({ error: "employeeId is required." }, { status: 400 });
+  try {
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return badRequestResponse("Invalid JSON payload.");
+    }
+
+    const { employeeId } = body || {};
+
+    // 2. Strict primitive type validation
+    if (!isValidId(employeeId)) {
+      return badRequestResponse("Valid employeeId is required.");
     }
 
     const employee = await prisma.employee.findUnique({
@@ -59,11 +75,10 @@ export async function POST(req: NextRequest) {
       data: {
         departmentId: employee.departmentId,
         kind: "BIOMETRIC_RESET",
-        summary: `Biometric device change requested for ${employee.name} (${employee.role}).`,
+        summary: `Biometric device change requested for ${employee.name}.`,
         payload: {
           employeeId: employee.id,
           employeeName: employee.name,
-          employeeRole: employee.role,
         },
         requestedBy: `${employee.name} (Employee Self-Service)`,
       },
@@ -74,11 +89,7 @@ export async function POST(req: NextRequest) {
       success: true,
       message: "Biometric change request submitted! An administrator must approve it before you can pair a new device.",
     });
-  } catch (error: any) {
-    console.error("Failed to request biometric reset:", error);
-    return NextResponse.json(
-      { error: error?.message || "Failed to submit biometric change request." },
-      { status: 500 }
-    );
+  } catch (error) {
+    return safeErrorResponse(error, "Failed to submit biometric change request.", 500);
   }
 }

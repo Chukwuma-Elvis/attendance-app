@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyAuthentication } from "@/lib/webauthn";
 import { verifyPin } from "@/lib/pin";
+import { isValidId, badRequestResponse, safeErrorResponse } from "@/lib/validation";
 import {
   verifyGeofence,
   evaluateCheckInTime,
@@ -45,8 +46,8 @@ export async function POST(req: NextRequest) {
       clientDate,
     } = body;
 
-    if (!employeeId) {
-      return NextResponse.json({ error: "employeeId is required." }, { status: 400 });
+    if (!isValidId(employeeId)) {
+      return badRequestResponse("Valid employeeId is required.");
     }
 
     if (
@@ -326,11 +327,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: "Invalid action. Expected CHECK_IN or CHECK_OUT." }, { status: 400 });
-  } catch (error: any) {
-    console.error("Check-in error:", error);
-    return NextResponse.json(
-      { error: error?.message || "Check-in failed due to server error." },
-      { status: 500 }
-    );
+  } catch (error) {
+    return safeErrorResponse(error, "Check-in failed due to server error.", 500);
   }
 }

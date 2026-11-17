@@ -22,7 +22,7 @@ type DepartmentInfo = {
   employees: Array<{
     id: string;
     name: string;
-    role: string;
+    role?: string;
     workingDays: number[];
     hasBiometricsRegistered: boolean;
     biometricResetRequested: boolean;
@@ -685,7 +685,7 @@ export default function MobileCheckInPage() {
             <option value="">-- Choose your name --</option>
             {activeDept?.employees.map((e) => (
               <option key={e.id} value={e.id}>
-                {e.name} ({e.role}){e.customShifts ? " ⏰" : ""}{e.pinCheckInAllowed ? " 🔢" : ""}
+                {e.name}{e.customShifts ? " ⏰" : ""}{e.pinCheckInAllowed ? " 🔢" : ""}
               </option>
             ))}
           </select>
@@ -832,7 +832,9 @@ export default function MobileCheckInPage() {
                 </div>
                 <p className="text-[11px] opacity-85">
                   {isInsideGeofence
-                    ? `GPS verified within allowed radius (Accuracy: ±${Math.round(location.accuracy)}m).`
+                    ? activeDept?.hasVenueLocation
+                      ? `GPS location captured (Accuracy: ±${Math.round(location.accuracy)}m). Workplace geofence verified on submission.`
+                      : `GPS verified (Accuracy: ±${Math.round(location.accuracy)}m).`
                     : `You are too far from ${activeDept?.venueName || "the assigned workplace"}. Check-in is blocked until you arrive at the venue.`}
                 </p>
               </div>

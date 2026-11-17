@@ -1,0 +1,36 @@
+name: Automated LinkedIn Showcase Publisher
+
+on:
+  workflow_dispatch:
+    inputs:
+      custom_text:
+        description: "Custom post text (leave empty to use default project showcase)"
+        required: false
+        default: ""
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run LinkedIn Direct API Publisher
+        env:
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+          LINKEDIN_PERSON_URN: ${{ secrets.LINKEDIN_PERSON_URN }}
+        run: |
+          if [ -n "${{ github.event.inputs.custom_text }}" ]; then
+            npm run linkedin:publish -- --text "${{ github.event.inputs.custom_text }}"
+          else
+            npm run linkedin:publish
+          fi
