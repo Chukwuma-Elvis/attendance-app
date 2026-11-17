@@ -7,6 +7,7 @@
     "build": "prisma generate && next build",
     "test": "tsx scripts/security-audit-verify.ts",
     "test:security": "tsx scripts/security-audit-verify.ts",
+    "lint": "tsc --noEmit",
     "start": "next start",
     "postinstall": "prisma generate",
     "seed": "tsx prisma/seed.ts",

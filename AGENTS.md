@@ -40,4 +40,5 @@ Context for AI agents and team members working in this repository.
 
 ## Lifecycle work in progress
 Per-change artifacts live in `sdlc/<change-slug>/`. Before doing any work on a change, read its `WORKLOG.md` first: it holds the current state, the next action, every decision made so far, and the agreed conventions. Continue from its "Resume here" section, follow its decisions and conventions, and update it as you work. Then read `intent.md`, `spec.md` and `plan.md` before changing code for that change.
-Active change: `sdlc/pentagi-security-hardening/WORKLOG.md`.
+Active change: `sdlc/attendance-ci-cd/WORKLOG.md`.
+Completed changes: `sdlc/pentagi-security-hardening/WORKLOG.md`.
